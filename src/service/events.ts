@@ -126,7 +126,7 @@ const onChatStart = async (
         logger.verbose(`onChatStart join - ${refId} ${platformUserId}`);
         try {
           res = await axios.post(
-            `${config.backendUrl}/user/getAccessibleGroupIds`,
+            `${config.backendUrl}/telegram/accessibleGroups`,
             {
               refId,
               platformUserId
