@@ -1,13 +1,10 @@
-import axios, { AxiosResponse } from "axios";
-import { Context, Markup, NarrowedContext } from "telegraf";
-import { Message, Update } from "typegram";
-import dayjs from "dayjs";
+import axios from "axios";
+import { Context, NarrowedContext } from "telegraf";
+import { Update } from "typegram";
 import Bot from "../Bot";
-import { generateInvite } from "../api/actions";
 import {
   sendNotASuperGroup,
   fetchCommunitiesOfUser,
-  getGroupName,
   leaveCommunity,
   sendMessageForSupergroup,
   sendNotAnAdministrator,
@@ -15,177 +12,71 @@ import {
 } from "./common";
 import config from "../config";
 import logger from "../utils/logger";
-import {
-  createVoteListText,
-  logAxiosResponse,
-  updatePollText
-} from "../utils/utils";
+import { logAxiosResponse } from "../utils/utils";
 import pollStorage from "./pollStorage";
-import { Poll } from "./types";
 
 const onMessage = async (ctx: any): Promise<void> => {
   if (ctx.update.message.chat.type === "private") {
     try {
-      const step = pollStorage.getUserStep(ctx.update.message.from.id);
+      const userId = ctx.update.message.from.id;
+      const step = pollStorage.getUserStep(userId);
       const messageText = ctx.update.message.text.trim();
 
-      if (
-        messageText === "/done" ||
-        messageText === "/cancel" ||
-        messageText === "/reset"
-      ) {
-        return;
-      }
-
-      if (step === 1) {
-        pollStorage.savePollQuestion(ctx.update.message.from.id, messageText);
-        pollStorage.setUserStep(ctx.update.message.from.id, 2);
+      if (step === 2) {
+        pollStorage.savePollQuestion(userId, messageText);
+        pollStorage.setUserStep(userId, 3);
         await Bot.Client.sendMessage(
-          ctx.update.message.from.id,
-          "Now send me the duration of your poll in DD:HH:mm format. " +
-            'For example if you want your poll to be active for 1.5 hours, you should send "0:1:30".'
+          userId,
+          'Now send me the duration of your poll in DD:HH:mm format. For example if you want your poll to be active for 1.5 hours, you should send "0:1:30" or "00:01:30".'
         );
-      } else if (step === 2) {
-        const regex =
+      } else if (step === 3) {
+        const dateRegex =
           /([1-9][0-9]*|[0-9]):([0-1][0-9]|[0-9]|[2][0-4]):([0-5][0-9]|[0-9])/;
-        const found = messageText.match(regex);
+        const found = messageText.match(dateRegex);
         if (!found) {
           await Bot.Client.sendMessage(
-            ctx.update.message.from.id,
-            "The message you sent me is not in the DD:HH:mm format. " +
-              "Please verify the contents of your message and send again."
+            userId,
+            "The message you sent me is not in the DD:HH:mm format. Please verify the contents of your message and send again."
           );
           return;
         }
         const date = found[0];
-        pollStorage.savePollExpDate(ctx.update.message.from.id, date);
-        pollStorage.setUserStep(ctx.update.message.from.id, 3);
+        pollStorage.savePollExpDate(userId, date);
+        pollStorage.setUserStep(userId, 4);
         await Bot.Client.sendMessage(
-          ctx.update.message.from.id,
+          userId,
           "Now send me the first option of your poll."
         );
-      } else if (step >= 3) {
-        const optionSaved = pollStorage.savePollOption(
-          ctx.update.message.from.id,
-          messageText
-        );
+      } else if (step >= 4) {
+        const optionSaved = pollStorage.savePollOption(userId, messageText);
         if (!optionSaved) {
           await Bot.Client.sendMessage(
-            ctx.update.message.from.id,
+            userId,
             "This option is invalid please send me another."
           );
           return;
         }
-        if (step === 3) {
+        if (step === 4) {
           await Bot.Client.sendMessage(
-            ctx.update.message.from.id,
+            userId,
             "Send me the second option of your poll."
           );
-        } else if (step >= 4) {
+        } else if (step >= 5) {
           await Bot.Client.sendMessage(
-            ctx.update.message.from.id,
+            userId,
             "You can send me another option or use /done to start and publish your poll."
           );
         }
-        pollStorage.setUserStep(ctx.update.message.from.id, step + 1);
+        pollStorage.setUserStep(userId, step + 1);
       } else {
         await ctx.reply("I'm sorry, but I couldn't interpret your request.");
         await ctx.replyWithMarkdown(
-          "You can find more information on the " +
-            "[Agora](https://agora.xyz/) website."
+          "You can find more information on the [Guild](https://docs.guild.xyz/) website."
         );
       }
     } catch (err) {
       logger.error(err);
     }
-  }
-};
-
-const onChatStart = async (
-  ctx: NarrowedContext<
-    Context,
-    {
-      message: Update.New & Update.NonChannel & Message.TextMessage;
-      update_id: number;
-    }
-  >
-): Promise<void> => {
-  const { message } = ctx;
-
-  if (message.chat.id > 0) {
-    if (new RegExp(/^\/start [a-z0-9]{64}$/).test(message.text)) {
-      const refId = message.text.split("/start ")[1];
-      const platformUserId = message.from.id;
-
-      try {
-        await ctx.reply(
-          "Thank you for joining, I'll send the invites as soon as possible."
-        );
-
-        let res: AxiosResponse;
-        logger.verbose(`onChatStart join - ${refId} ${platformUserId}`);
-        try {
-          res = await axios.post(
-            `${config.backendUrl}/telegram/accessibleGroups`,
-            {
-              refId,
-              platformUserId
-            }
-          );
-        } catch (error) {
-          if (error?.response?.data?.errors?.[0]?.msg === "deleted") {
-            ctx.reply(
-              "This invite link has expired. Please, start the joining process through the guild page again."
-            );
-            return;
-          }
-          logger.error(`${JSON.stringify(error)}`);
-          ctx.reply(`Something went wrong. (${new Date().toUTCString()})`);
-          return;
-        }
-        logAxiosResponse(res);
-
-        if (res.data.length === 0) {
-          ctx.reply(
-            "There aren't any groups of this guild that you have access to."
-          );
-          return;
-        }
-
-        const invites: { link: string; name: string }[] = [];
-
-        await Promise.all(
-          res.data.map(async (groupId: string) => {
-            const inviteLink = await generateInvite(groupId, platformUserId);
-
-            if (inviteLink !== undefined) {
-              invites.push({
-                link: inviteLink,
-                name: await getGroupName(+groupId)
-              });
-            }
-          })
-        );
-
-        logger.verbose(`inviteLink: ${invites}`);
-
-        if (invites.length) {
-          ctx.replyWithMarkdown(
-            "Use the following invite links to join the groups you unlocked:",
-            Markup.inlineKeyboard(
-              invites.map((inv) => [Markup.button.url(inv.name, inv.link)])
-            )
-          );
-        } else {
-          ctx.reply(
-            "You are already a member of the groups of this guild " +
-              "so you will not receive any invite links."
-          );
-        }
-      } catch (err) {
-        logger.error(err);
-      }
-    } else onMessage(ctx);
   }
 };
 
@@ -308,185 +199,12 @@ const onMyChatMemberUpdate = async (ctx: any): Promise<void> => {
   }
 };
 
-const onCallbackQuery = async (ctx: any): Promise<void> => {
-  try {
-    const data: string[] = ctx.update.callback_query.data.split(";");
-    const action: string = data.pop();
-    const pollText = ctx.update.callback_query.message.text;
-    const platformUserId = ctx.update.callback_query.from.id;
-    let newPollText: string;
-    let poll: Poll;
-    let chatId: string;
-    let pollMessageId: string;
-    let adminId: string;
-    let adminMessageId: number;
-
-    if (action === "ListVoters") {
-      const pollId = data.pop();
-      [chatId, pollMessageId] = data[0].split(":");
-      // for testing
-      logger.verbose(`ListVoters ${pollId}`);
-
-      const pollResponse = await axios.get(
-        `${config.backendUrl}/poll/${pollId}`
-      );
-      logAxiosResponse(pollResponse);
-
-      poll = pollResponse.data;
-
-      const responseText = await createVoteListText(chatId, poll);
-
-      await Bot.Client.sendMessage(
-        ctx.update.callback_query.from.id,
-        responseText
-      );
-      return;
-    }
-
-    if (action === "UpdateResult") {
-      const pollId = data.pop();
-      [chatId, pollMessageId] = data[0].split(":");
-      adminId = ctx.update.callback_query.message.chat.id;
-      adminMessageId = ctx.update.callback_query.message.message_id;
-      // for testing
-      logger.verbose(`UpdateResult ${pollId}`);
-      const pollResponse = await axios.get(
-        `${config.backendUrl}/poll/${pollId}`
-      );
-
-      logAxiosResponse(pollResponse);
-      if (pollResponse.data.length === 0) {
-        return;
-      }
-
-      poll = pollResponse.data;
-      newPollText = await updatePollText(poll);
-    } else if (action === "Vote") {
-      const pollId = data.pop();
-      chatId = ctx.update.callback_query.message.chat.id;
-      pollMessageId = ctx.update.callback_query.message.message_id;
-
-      // for testing
-      logger.verbose(`Vote ${pollId}`);
-      const voterOption = data.join(";");
-      const pollResponse = await axios.get(
-        `${config.backendUrl}/poll/${pollId}`
-      );
-
-      logAxiosResponse(pollResponse);
-      if (pollResponse.data.length === 0) {
-        return;
-      }
-
-      poll = pollResponse.data;
-
-      const pollTextResponse = await axios.get(
-        `${config.backendUrl}/poll/pollText/${pollId}`
-      );
-
-      logAxiosResponse(pollTextResponse);
-      if (pollTextResponse.data.length === 0) {
-        return;
-      }
-
-      const pollAdminText = pollTextResponse.data.adminTextId;
-
-      [adminId, adminMessageId] = pollAdminText.split(":");
-
-      if (dayjs().isBefore(dayjs.unix(poll.expDate))) {
-        const voteResponse = await axios.post(
-          `${config.backendUrl}/poll/vote`,
-          {
-            pollId,
-            platformUserId,
-            option: voterOption
-          }
-        );
-        logAxiosResponse(voteResponse);
-      }
-      newPollText = await updatePollText(poll);
-    }
-
-    if (dayjs().isAfter(dayjs.unix(poll.expDate))) {
-      // Delete buttons
-      await Bot.Client.editMessageText(
-        adminId,
-        adminMessageId,
-        undefined,
-        newPollText
-      ).catch(() => undefined);
-
-      await Bot.Client.editMessageText(
-        chatId,
-        parseInt(pollMessageId, 10),
-        undefined,
-        newPollText
-      ).catch(() => undefined);
-      return;
-    }
-
-    if (newPollText === pollText) {
-      return;
-    }
-
-    const voteButtonRow: { text: string; callback_data: string }[][] = [];
-    poll.options.forEach((option) => {
-      const button = [
-        {
-          text: option,
-          callback_data: `${option};${poll.id};Vote`
-        }
-      ];
-      voteButtonRow.push(button);
-    });
-
-    const inlineKeyboard = {
-      reply_markup: {
-        inline_keyboard: voteButtonRow
-      }
-    };
-
-    const listVotersButton = {
-      text: "List Voters",
-      callback_data: `${chatId}:${pollMessageId};${poll.id};ListVoters`
-    };
-    const updateResultButton = {
-      text: "Update Result",
-      callback_data: `${chatId}:${pollMessageId};${poll.id};UpdateResult`
-    };
-
-    await Bot.Client.editMessageText(
-      chatId,
-      parseInt(pollMessageId, 10),
-      undefined,
-      newPollText,
-      inlineKeyboard
-    ).catch(() => undefined);
-
-    await Bot.Client.editMessageText(
-      adminId,
-      adminMessageId,
-      undefined,
-      newPollText,
-      {
-        reply_markup: {
-          inline_keyboard: [[listVotersButton, updateResultButton]]
-        }
-      }
-    ).catch(() => undefined);
-  } catch (err) {
-    logger.error(err);
-  }
-};
-
 export {
-  onChatStart,
   onChatMemberUpdate,
   onMyChatMemberUpdate,
   onUserJoined,
   onUserLeftGroup,
   onUserRemoved,
   onBlocked,
-  onMessage,
-  onCallbackQuery
+  onMessage
 };

@@ -26,7 +26,7 @@ export default class Bot {
     });
 
     // inbuilt commands
-    bot.start(TGEvents.onChatStart);
+    bot.start(TGCommands.startCommand);
     bot.help(TGCommands.helpCommand);
 
     // other commands
@@ -36,17 +36,16 @@ export default class Bot {
     bot.command("status", TGCommands.statusUpdateCommand);
     bot.command("groupid", TGCommands.groupIdCommand);
     bot.command("add", TGCommands.addCommand);
-    bot.command("poll", TGCommands.newPoll);
-    bot.command("done", TGCommands.startPoll);
-    bot.command("reset", TGCommands.resetPoll);
-    bot.command("cancel", TGCommands.cancelPoll);
+    bot.command("poll", TGCommands.pollCommand);
+    bot.command("done", TGCommands.doneCommand);
+    bot.command("reset", TGCommands.resetCommand);
+    bot.command("cancel", TGCommands.cancelCommand);
 
     // event listeners
     bot.on("text", TGEvents.onMessage);
     bot.on("left_chat_member", TGEvents.onUserLeftGroup);
     bot.on("chat_member", TGEvents.onChatMemberUpdate);
     bot.on("my_chat_member", TGEvents.onMyChatMemberUpdate);
-    bot.on("callback_query", TGEvents.onCallbackQuery);
 
     // action listeners
     bot.action(
@@ -57,6 +56,10 @@ export default class Bot {
       /^leave_confirmed_[0-9]+$/,
       TGActions.confirmedLeaveCommunityAction
     );
+    bot.action(/;PickRequirement$/, TGActions.pickRequirementAction);
+    bot.action(/;ListVoters$/, TGActions.listVotersAction);
+    bot.action(/;UpdateResult$/, TGActions.updateResultAction);
+    bot.action(/;Vote$/, TGActions.voteAction);
 
     // starting the bot
     bot.launch({
@@ -76,6 +79,6 @@ export default class Bot {
     process.once("SIGINT", () => bot.stop("SIGINT"));
     process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
-    logger.verbose("Medousa is alive...");
+    logger.verbose("Guild bot is alive...");
   }
 }
