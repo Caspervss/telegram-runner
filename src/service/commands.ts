@@ -1,6 +1,6 @@
 import axios, { AxiosResponse } from "axios";
-import { Context, Markup, NarrowedContext } from "telegraf";
-import { InlineKeyboardButton, Message, Update } from "typegram";
+import { Markup } from "telegraf";
+import { InlineKeyboardButton, Message } from "typegram";
 import dayjs from "dayjs";
 import { LevelInfo } from "../api/types";
 import Bot from "../Bot";
@@ -9,16 +9,17 @@ import { fetchCommunitiesOfUser, getGroupName } from "./common";
 import config from "../config";
 import logger from "../utils/logger";
 import {
-  sendPollTokenPicker,
+  sendPollTokenChooser,
   extractBackendErrorMessage,
   logAxiosResponse,
   pollBuildResponse,
-  createVoteListText
+  createVoteListText,
+  initPoll
 } from "../utils/utils";
 import pollStorage from "./pollStorage";
-import { Poll } from "./types";
+import { Ctx, Poll } from "./types";
 
-const helpCommand = (ctx: any): void => {
+const helpCommand = (ctx: Ctx): void => {
   const helpHeader =
     "Hello there! I'm the Guild bot.\n" +
     "I'm part of the [Guild](https://docs.guild.xyz/) project and " +
@@ -51,14 +52,6 @@ const helpCommand = (ctx: any): void => {
     disable_web_page_preview: true
   });
 };
-
-type Ctx = NarrowedContext<
-  Context,
-  {
-    message: Update.New & Update.NonChannel & Message.TextMessage;
-    update_id: number;
-  }
-> & { startPayload?: string };
 
 const startCommand = async (ctx: Ctx): Promise<void> => {
   const { message } = ctx;
@@ -176,7 +169,7 @@ const startCommand = async (ctx: Ctx): Promise<void> => {
   }
 };
 
-const leaveCommand = async (ctx: any): Promise<void> => {
+const leaveCommand = async (ctx: Ctx): Promise<void> => {
   try {
     const platformUserId = ctx.message.from.id;
 
@@ -208,7 +201,7 @@ const leaveCommand = async (ctx: any): Promise<void> => {
   }
 };
 
-const listCommunitiesCommand = async (ctx: any): Promise<void> => {
+const listCommunitiesCommand = async (ctx: Ctx): Promise<void> => {
   try {
     const results = await fetchCommunitiesOfUser(ctx.message.from.id);
 
@@ -223,7 +216,7 @@ const listCommunitiesCommand = async (ctx: any): Promise<void> => {
   }
 };
 
-const pingCommand = async (ctx: any): Promise<void> => {
+const pingCommand = async (ctx: Ctx): Promise<void> => {
   const { message } = ctx.update;
   const messageTime = new Date(message.date * 1000).getTime();
   const platformUserId = message.from.id;
@@ -245,7 +238,7 @@ const pingCommand = async (ctx: any): Promise<void> => {
   }
 };
 
-const statusUpdateCommand = async (ctx: any): Promise<void> => {
+const statusUpdateCommand = async (ctx: Ctx): Promise<void> => {
   const { message } = ctx.update;
   const platformUserId = message.from.id;
 
@@ -284,13 +277,13 @@ const statusUpdateCommand = async (ctx: any): Promise<void> => {
   }
 };
 
-const groupIdCommand = async (ctx: any): Promise<void> =>
-  ctx.reply(ctx.update.message.chat.id, {
+const groupIdCommand = async (ctx: Ctx): Promise<Message.TextMessage> =>
+  ctx.reply(String(ctx.update.message.chat.id), {
     reply_to_message_id: ctx.update.message.message_id
   });
 
-const addCommand = async (ctx: Ctx): Promise<void> => {
-  await ctx.replyWithMarkdown(
+const addCommand = async (ctx: Ctx): Promise<Message.TextMessage> =>
+  ctx.replyWithMarkdown(
     "Click to add Guild bot to your group",
     Markup.inlineKeyboard([
       Markup.button.url(
@@ -299,65 +292,10 @@ const addCommand = async (ctx: Ctx): Promise<void> => {
       )
     ])
   );
-};
 
-const pollCommand = async (ctx: any): Promise<void> => {
-  try {
-    const platformUserId = ctx.message.from.id;
+const pollCommand = async (ctx: Ctx): Promise<void> => initPoll(ctx);
 
-    const memberStatus = (
-      await Bot.Client.getChatMember(ctx.message.chat.id, platformUserId)
-    ).status;
-
-    const guildIdRes = await axios.get(
-      `${config.backendUrl}/guild/platformId/${ctx.message.chat.id}`
-    );
-
-    if (!guildIdRes) {
-      ctx.reply("Please use this command in a guild.");
-      return;
-    }
-
-    if (!(memberStatus === "creator" || memberStatus === "administrator")) {
-      ctx.reply("You are not an admin.");
-      return;
-    }
-
-    await sendPollTokenPicker(ctx, guildIdRes.data.id);
-
-    const userStep = pollStorage.getUserStep(platformUserId);
-
-    if (userStep) {
-      pollStorage.deleteMemory(platformUserId);
-    }
-
-    pollStorage.initPoll(platformUserId, ctx.chat.id.toString());
-    pollStorage.setUserStep(platformUserId, 1);
-
-    const chatMember = await Bot.Client.getChatMember(
-      ctx.chat.id,
-      platformUserId
-    );
-
-    if (!chatMember) {
-      ctx.reply("Check your private messages!");
-    } else {
-      const { username, first_name } = chatMember.user;
-
-      if (!username) {
-        ctx.replyWithMarkdown(
-          `[${first_name}](tg://user?id=${platformUserId}) check your private messages!`
-        );
-      } else {
-        ctx.reply(`@${username} check your private messages!`);
-      }
-    }
-  } catch (err) {
-    logger.error(err);
-  }
-};
-
-const doneCommand = async (ctx: any): Promise<void> => {
+const doneCommand = async (ctx: Ctx): Promise<void> => {
   const userId = ctx.message.from.id;
 
   try {
@@ -385,7 +323,8 @@ const doneCommand = async (ctx: any): Promise<void> => {
     const res = await axios.post(
       `${config.backendUrl}/poll`,
       {
-        groupId: chatId,
+        platform: config.platform,
+        platformId: chatId,
         requirementId,
         question,
         startDate,
@@ -399,13 +338,13 @@ const doneCommand = async (ctx: any): Promise<void> => {
 
     const storedPoll: Poll = res.data;
 
-    let pollText = `${poll.question}\n\n`;
+    const titleText = `Poll #${storedPoll.id}: ${poll.question}`;
 
-    const adminMessage = await Bot.Client.sendMessage(userId, pollText);
+    const adminMessage = await Bot.Client.sendMessage(userId, titleText);
 
-    poll.options.forEach((option) => {
-      pollText += `${option}\n▫️0%\n\n`;
-    });
+    const optionsText = poll.options
+      .map((option) => `${option}\n▫️0%`)
+      .join("\n\n");
 
     const voteButtonRow: { text: string; callback_data: string }[][] =
       poll.options.map((option) => [
@@ -415,9 +354,8 @@ const doneCommand = async (ctx: any): Promise<void> => {
         }
       ]);
 
-    pollText += `👥 0 person voted so far.`;
-
-    pollText += `\n\nPoll ends on ${dayjs
+    const votersText = `👥 0 persons voted so far.`;
+    const dateText = `Poll ends on ${dayjs
       .unix(expDate)
       .utc()
       .format("YYYY-MM-DD HH:mm UTC")}`;
@@ -429,8 +367,8 @@ const doneCommand = async (ctx: any): Promise<void> => {
     };
 
     const message = await Bot.Client.sendMessage(
-      chatId,
-      pollText,
+      poll.chatId,
+      `${titleText}\n\n${optionsText}\n\n${votersText}\n\n${dateText}`,
       inlineKeyboard
     );
 
@@ -448,7 +386,7 @@ const doneCommand = async (ctx: any): Promise<void> => {
       userId,
       adminMessage.message_id,
       undefined,
-      pollText,
+      message.text,
       {
         reply_markup: {
           inline_keyboard: [[listVotersButton, updateResultButton]]
@@ -474,23 +412,23 @@ const doneCommand = async (ctx: any): Promise<void> => {
   }
 };
 
-const resetCommand = async (ctx: any): Promise<void> => {
+const resetCommand = async (ctx: Ctx): Promise<void> => {
   try {
     if (ctx.message.chat.type !== "private") {
       return;
     }
 
-    const userId = ctx.message.from.id;
+    const platformUserId = ctx.message.from.id;
 
-    if (pollStorage.getUserStep(userId) > 0) {
-      const poll = pollStorage.getPoll(userId);
+    if (pollStorage.getUserStep(platformUserId) > 0) {
+      const { chatId } = pollStorage.getPoll(platformUserId);
 
-      pollStorage.deleteMemory(userId);
-      pollStorage.initPoll(userId, poll.chatId);
-      pollStorage.setUserStep(userId, 1);
+      pollStorage.deleteMemory(platformUserId);
+      pollStorage.initPoll(platformUserId, chatId);
+      pollStorage.setUserStep(platformUserId, 1);
 
       const guildIdRes = await axios
-        .get(`${config.backendUrl}/guild/platformId/${poll.chatId}`)
+        .get(`${config.backendUrl}/guild/platformId/${chatId}`)
         .catch(() => undefined);
 
       if (!guildIdRes) {
@@ -499,18 +437,18 @@ const resetCommand = async (ctx: any): Promise<void> => {
       }
 
       await Bot.Client.sendMessage(
-        userId,
+        platformUserId,
         "The poll building process has been reset."
       );
 
-      await sendPollTokenPicker(ctx, guildIdRes.data.id);
+      await sendPollTokenChooser(ctx, platformUserId, guildIdRes.data.id);
     }
   } catch (err) {
     logger.error(err);
   }
 };
 
-const cancelCommand = async (ctx: any): Promise<void> => {
+const cancelCommand = async (ctx: Ctx): Promise<void> => {
   try {
     if (ctx.message.chat.type !== "private") {
       return;
