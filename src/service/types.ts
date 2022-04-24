@@ -1,6 +1,14 @@
 import { Context, NarrowedContext } from "telegraf";
 import { Message, Update } from "typegram";
 
+type NewPoll = {
+  requirementId: number;
+  platformId: string;
+  question: string;
+  options: string[];
+  expDate: string;
+};
+
 type Poll = {
   id: number;
   question: string;
@@ -8,11 +16,6 @@ type Poll = {
   expDate: number;
   options: string[];
   roleId: number;
-};
-
-type UserVote = {
-  tgId: string;
-  balance: number;
 };
 
 type Ctx = NarrowedContext<
@@ -23,4 +26,4 @@ type Ctx = NarrowedContext<
   }
 > & { startPayload?: string };
 
-export { Poll, UserVote, Ctx };
+export { NewPoll, Poll, Ctx };
