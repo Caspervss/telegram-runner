@@ -175,13 +175,13 @@ const isIn = async (groupId: number): Promise<IsInResult> => {
 
         return {
           ok: true,
-          groupName: chat.title,
+          groupName: (chat as any).title,
           groupIcon: `data:image/jpeg;base64,${blob.data.toString("base64")}`
         };
       } catch {
         return {
           ok: true,
-          groupName: chat.title,
+          groupName: (chat as any).title,
           groupIcon: ""
         };
       }
@@ -189,7 +189,7 @@ const isIn = async (groupId: number): Promise<IsInResult> => {
 
     return {
       ok: true,
-      groupName: chat.title,
+      groupName: (chat as any).title,
       groupIcon: ""
     };
   } catch (err) {
