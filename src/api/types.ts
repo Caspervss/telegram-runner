@@ -27,10 +27,13 @@ type ErrorResult = {
   errors: { msg: string }[];
 };
 
-type IsInResult = {
-  ok: boolean;
-  message?: string;
-};
+type IsInResult =
+  | { ok: false; message: string }
+  | {
+      groupIcon: string;
+      groupName: string;
+      ok: true;
+    };
 
 export {
   ManageGroupsParam,
