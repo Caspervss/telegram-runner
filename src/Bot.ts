@@ -37,16 +37,18 @@ export default class Bot {
     bot.command("groupid", TGCommands.groupIdCommand);
     bot.command("add", TGCommands.addCommand);
     bot.command("poll", TGCommands.pollCommand);
+    bot.command("enough", TGCommands.enoughCommand);
     bot.command("done", TGCommands.doneCommand);
     bot.command("reset", TGCommands.resetCommand);
     bot.command("cancel", TGCommands.cancelCommand);
 
     // event listeners
-    bot.on("text", TGEvents.onMessage);
-    bot.on("channel_post", TGEvents.onChannelPost);
-    bot.on("left_chat_member", TGEvents.onUserLeftGroup);
-    bot.on("chat_member", TGEvents.onChatMemberUpdate);
-    bot.on("my_chat_member", TGEvents.onMyChatMemberUpdate);
+    bot.on("text", TGEvents.messageUpdate);
+    bot.on("channel_post", TGEvents.channelPostUpdate);
+    bot.on("new_chat_members", TGEvents.newChatMembersUpdate);
+    bot.on("left_chat_member", TGEvents.leftChatMemberUpdate);
+    bot.on("chat_member", TGEvents.chatMemberUpdate);
+    bot.on("my_chat_member", TGEvents.myChatMemberUpdate);
 
     // action listeners
     bot.action(
@@ -72,6 +74,7 @@ export default class Bot {
       ]
     });
 
+    // logging middleware for bot errors
     bot.catch((err) => {
       logger.error(err);
     });

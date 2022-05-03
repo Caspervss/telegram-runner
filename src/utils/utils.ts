@@ -1,4 +1,3 @@
-/* eslint-disable consistent-return */
 import axios, { AxiosResponse } from "axios";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -6,7 +5,7 @@ import { ErrorResult } from "../api/types";
 import Bot from "../Bot";
 import config from "../config";
 import pollStorage from "../service/pollStorage";
-import { Poll } from "../service/types";
+import { Ctx, Poll } from "../service/types";
 import logger from "./logger";
 
 dayjs.extend(utc);
@@ -23,6 +22,7 @@ const getErrorResult = (error: any): ErrorResult => {
     errorMsg = error.response.description;
   } else {
     logger.error(error);
+
     errorMsg = "unknown error";
   }
 
@@ -47,14 +47,17 @@ const extractBackendErrorMessage = (error: any) =>
   error.response?.data?.errors[0]?.msg;
 
 const sendPollTokenChooser = async (
-  ctx: any,
+  ctx: Ctx,
   platformUserId: number,
   guildId: number
 ): Promise<void> => {
   const guildRes = await axios.get(`${config.backendUrl}/guild/${guildId}`);
 
-  if (!guildRes) {
+  const guild = guildRes?.data;
+
+  if (!guild) {
     ctx.reply("Something went wrong. Please try again or contact us.");
+
     return;
   }
 
@@ -68,24 +71,30 @@ const sendPollTokenChooser = async (
       "Your guild has no requirement with an appropriate token standard." +
         "Weighted polls only support ERC20."
     );
+
     return;
   }
 
   const tokenButtons = requirements.map((requirement) => {
-    const { name, chain, address, id } = requirement;
+    const { name, chain, id } = requirement;
 
     return [
       {
-        text: `${name}-${chain}-${address}`,
+        text: `${name} on ${chain}`,
         callback_data: `${name}-${chain};${id};ChooseRequirement`
       }
     ];
   });
 
+  const group = (await ctx.getChat()) as { title: string };
+
   await Bot.Client.sendMessage(
     platformUserId,
-    "Let's start creating your poll. You can use /reset or /cancel to restart or stop the process at any time.\n\n" +
-      "First, please choose a token as the base of the weighted vote.",
+    "You are creating a token-weighted emoji-based poll in the " +
+      `channel "${group.title}" of the guild "${guild.name}".\n\n` +
+      "You can use /reset or /cancel to restart or stop the process at any time.\n" +
+      "Don't worry, I will guide you through the whole process.\n\n" +
+      "First, please choose a token as the base of the weighted poll.",
     {
       reply_markup: {
         inline_keyboard: tokenButtons
@@ -94,71 +103,82 @@ const sendPollTokenChooser = async (
   );
 };
 
-const initPoll = async (ctx): Promise<void> => {
+const initPoll = async (ctx: any): Promise<void> => {
   const { update } = ctx;
 
   let chatId: number;
-  let platformUserId;
-
-  if (update.channel_post) {
-    chatId = update.channel_post.chat.id;
-
-    const creatorId = (await Bot.Client.getChatAdministrators(chatId))
-      .filter((admin) => admin.status === "creator")
-      .map((admin) => admin.user.id)[0];
-
-    platformUserId = String(creatorId);
-  } else {
-    chatId = update.message.chat.id;
-    platformUserId = update.message.from.id;
-  }
+  let userId;
 
   try {
-    const chatMember = await Bot.Client.getChatMember(chatId, platformUserId);
-    const memberStatus = chatMember.status;
+    if (update.channel_post) {
+      chatId = update.channel_post.chat.id;
+
+      const creatorId = (await Bot.Client.getChatAdministrators(chatId))
+        .filter((admin) => admin.status === "creator")
+        .map((admin) => admin.user.id)[0];
+
+      userId = String(creatorId);
+    } else {
+      chatId = update.message.chat.id;
+      userId = update.message.from.id;
+    }
+
+    const chatMember = await Bot.Client.getChatMember(chatId, userId);
 
     const guildIdRes = await axios.get(
       `${config.backendUrl}/guild/platformId/${chatId}`
     );
 
-    if (!guildIdRes) {
-      ctx.reply("Please use this command in a guild.");
+    const guildId = guildIdRes?.data?.id;
+
+    if (!guildId) {
+      await ctx.reply("Please use this command in a guild.");
+
       return;
     }
 
-    if (!(memberStatus === "creator" || memberStatus === "administrator")) {
-      ctx.reply("You are not an admin.");
-      return;
+    const isAdminRes = await axios.get(
+      `${config.backendUrl}/guild/isAdmin/${chatId}/${userId}`
+    );
+
+    if (isAdminRes?.data) {
+      await sendPollTokenChooser(ctx, userId, guildIdRes.data.id);
+
+      if (pollStorage.getPoll(userId)) {
+        await ctx.reply(
+          "You already have an ongoing poll creation process.\n" +
+            "You can cancel it using /cancel."
+        );
+
+        return;
+      }
+
+      pollStorage.initPoll(userId, chatId.toString());
+
+      if (update.channel_post) {
+        return;
+      }
+
+      if (!chatMember) {
+        await ctx.reply("Check your private messages!");
+
+        return;
+      }
+
+      const { username, first_name } = chatMember.user;
+
+      if (!username) {
+        await ctx.replyWithMarkdown(
+          `[${first_name}](tg://user?id=${userId}) please check your private messages!`
+        );
+
+        return;
+      }
+
+      await ctx.reply(`@${username} please check your private messages!`);
+    } else {
+      ctx.reply("Seems like you are not a guild admin.");
     }
-
-    await sendPollTokenChooser(ctx, platformUserId, guildIdRes.data.id);
-
-    const userStep = pollStorage.getUserStep(platformUserId);
-
-    if (userStep) {
-      pollStorage.deleteMemory(platformUserId);
-    }
-
-    pollStorage.initPoll(platformUserId, chatId.toString());
-    pollStorage.setUserStep(platformUserId, 1);
-
-    if (update.channel_post) {
-      return;
-    }
-
-    if (!chatMember) {
-      return await ctx.reply("Check your private messages!");
-    }
-
-    const { username, first_name } = chatMember.user;
-
-    if (!username) {
-      return await ctx.replyWithMarkdown(
-        `[${first_name}](tg://user?id=${platformUserId}) check your private messages!`
-      );
-    }
-
-    return await ctx.reply(`@${username} check your private messages!`);
   } catch (err) {
     logger.error(err);
   }
@@ -200,7 +220,7 @@ const createPollText = async (
   } voted so far.`;
 
   return (
-    `*Poll #${id}: ${question}*\n\n` +
+    `**Poll #${id}: ${question}**\n\n` +
     `${optionsText}\n\n${dateText}\n\n${votersText}`
   );
 };
@@ -232,53 +252,50 @@ const sendPollMessage = async (
 };
 
 const pollBuildResponse = async (userId: number): Promise<boolean> => {
-  switch (pollStorage.getUserStep(userId)) {
-    case undefined:
-    case 0:
+  const poll = pollStorage.getPoll(userId);
+
+  if (poll) {
+    if (poll.requirementId === 0) {
       await Bot.Client.sendMessage(
         userId,
-        "Please use the /poll command in a guild."
+        "You must choose a token for weighting."
       );
-      return true;
 
-    case 1:
+      return true;
+    }
+
+    if (poll.question === "") {
+      await Bot.Client.sendMessage(userId, "The poll must have a question.");
+
+      return true;
+    }
+
+    if (poll.options.length <= 1) {
       await Bot.Client.sendMessage(
         userId,
-        "A poll must have a token as the base of the weighted vote."
+        "The poll must have at least two options."
       );
-      return true;
 
-    case 2:
+      return true;
+    }
+
+    if (poll.expDate === "") {
       await Bot.Client.sendMessage(
         userId,
-        "A poll must have a question. Please send me the question of your poll."
+        "The poll must have an expriation date."
       );
-      return true;
 
-    case 3:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have a duration. Please send me the duration of your poll in DD:HH:mm format."
-      );
       return true;
+    }
+  } else {
+    await Bot.Client.sendMessage(
+      userId,
+      "You don't have an active poll creation process."
+    );
 
-    case 4:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have options. Please send me the first one."
-      );
-      return true;
-
-    case 5:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have more than one option. Please send me a second one."
-      );
-      return true;
-
-    default:
-      break;
+    return true;
   }
+
   return false;
 };
 

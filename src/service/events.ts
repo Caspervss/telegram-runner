@@ -1,21 +1,23 @@
 import axios from "axios";
 import { Context, NarrowedContext } from "telegraf";
-import { Update } from "typegram";
+import { Update } from "telegraf/types";
+import dayjs from "dayjs";
 import Bot from "../Bot";
 import {
+  sendMessageForSupergroup,
   sendNotASuperGroup,
+  sendNotAnAdministrator,
   fetchCommunitiesOfUser,
   leaveCommunity,
-  sendMessageForSupergroup,
-  sendNotAnAdministrator,
   kickUser
 } from "./common";
 import config from "../config";
 import logger from "../utils/logger";
-import { initPoll } from "../utils/utils";
+import { createPollText, initPoll } from "../utils/utils";
 import pollStorage from "./pollStorage";
+import { Poll } from "./types";
 
-const onMessage = async (
+const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
 ): Promise<void> => {
   const msg = ctx.update.message as {
@@ -27,76 +29,97 @@ const onMessage = async (
   if (msg.chat.type === "private") {
     try {
       const userId = msg.from.id;
-      const step = pollStorage.getUserStep(userId);
       const messageText = msg.text.trim();
 
-      if (step === 2) {
-        pollStorage.savePollQuestion(userId, messageText);
-        pollStorage.setUserStep(userId, 3);
+      switch (pollStorage.getUserStep(userId)) {
+        case 1: {
+          pollStorage.savePollQuestion(userId, messageText);
+          pollStorage.setUserStep(userId, 2);
 
-        await Bot.Client.sendMessage(
-          userId,
-          "Now please send me the duration of your poll in DD:HH:mm format.\n" +
-            'For example if you want your poll to be active for 1.5 hours, you should send "0:1:30" or "00:01:30".'
-        );
-      } else if (step === 3) {
-        const dateRegex =
-          /([1-9][0-9]*|[0-9]):([0-1][0-9]|[0-9]|[2][0-4]):([0-5][0-9]|[0-9])/;
-        const found = messageText.match(dateRegex);
-
-        if (!found) {
-          await Bot.Client.sendMessage(
-            userId,
-            "The message you sent me is not in the DD:HH:mm format. Please verify the contents of your message and send again."
+          await ctx.reply(
+            "Please give me the options for the poll (one by one)."
           );
+
           return;
         }
 
-        const date = found[0];
+        case 2: {
+          const optionSaved = pollStorage.savePollOption(userId, messageText);
 
-        pollStorage.savePollExpDate(userId, date);
-        pollStorage.setUserStep(userId, 4);
+          if (!optionSaved) {
+            await ctx.reply("This option has already been added.");
 
-        await Bot.Client.sendMessage(
-          userId,
-          "Now send me the first option of your poll."
-        );
-      } else if (step >= 4) {
-        const optionSaved = pollStorage.savePollOption(userId, messageText);
+            return;
+          }
 
-        if (!optionSaved) {
-          await Bot.Client.sendMessage(
-            userId,
-            "This option is invalid please send me another."
-          );
+          if (pollStorage.getPoll(userId).options.length === 1) {
+            await ctx.reply("Please give me the second option of your poll.");
+          } else {
+            await ctx.reply(
+              "Please give me a new option or go to the next step by using /enough"
+            );
+          }
+
           return;
         }
 
-        if (step === 4) {
-          await Bot.Client.sendMessage(
-            userId,
-            "Send me the second option of your poll."
+        case 3: {
+          const dateRegex =
+            /([1-9][0-9]*|[0-9]):([0-1][0-9]|[0-9]|[2][0-4]):([0-5][0-9]|[0-9])/;
+          const found = messageText.match(dateRegex);
+
+          if (!found) {
+            await ctx.reply(
+              "The message you sent me is not in the DD:HH:mm format. Please verify the contents of your message and send again."
+            );
+
+            return;
+          }
+
+          const [day, hour, minute] = found[0].split(":");
+
+          const expDate = dayjs()
+            .add(parseInt(day, 10), "day")
+            .add(parseInt(hour, 10), "hour")
+            .add(parseInt(minute, 10), "minute")
+            .unix()
+            .toString();
+
+          pollStorage.savePollExpDate(userId, expDate);
+          pollStorage.setUserStep(userId, 4);
+
+          const poll = {
+            id: 69,
+            ...pollStorage.getPoll(userId)
+          } as unknown as Poll;
+
+          await ctx.replyWithMarkdown(await createPollText(poll));
+
+          await ctx.reply(
+            "You can accept it by using /done,\n" +
+              "reset the data by using /reset\n" +
+              "or cancel it using /cancel."
           );
-        } else if (step >= 5) {
-          await Bot.Client.sendMessage(
-            userId,
-            "You can send me another option or use /done to start and publish your poll."
-          );
+
+          return;
         }
-        pollStorage.setUserStep(userId, step + 1);
-      } else {
-        await ctx.reply("I'm sorry, but I couldn't interpret your request.");
-        await ctx.replyWithMarkdown(
-          "You can find more information on the [Guild](https://docs.guild.xyz/) website."
-        );
+
+        default: {
+          break;
+        }
       }
+
+      await ctx.replyWithMarkdown(
+        "I'm sorry, but I couldn't interpret your request.\n" +
+          "You can find more information on [docs.guild.xyz](https://docs.guild.xyz/)."
+      );
     } catch (err) {
       logger.error(err);
     }
   }
 };
 
-const onChannelPost = async (
+const channelPostUpdate = async (
   ctx: NarrowedContext<Context, Update.ChannelPostUpdate>
 ): Promise<void> => {
   const post = ctx.update.channel_post as {
@@ -104,6 +127,7 @@ const onChannelPost = async (
     chat: { id: number };
     text: string;
   };
+
   const channelId = post.chat.id;
 
   switch (post.text) {
@@ -172,12 +196,30 @@ const onUserRemoved = async (
     );
 
     logger.debug(JSON.stringify(res.data));
+  } catch (_) {
+    logger.error("Failed to remove user from Guild.");
+  }
+};
+
+const newChatMembersUpdate = async (
+  ctx: NarrowedContext<Context, any>
+): Promise<void> => {
+  const msg = ctx.update.message;
+  const groupId = msg.chat.id;
+  const userId = msg.new_chat_member.id;
+
+  try {
+    kickUser(
+      groupId,
+      userId,
+      "have joined the group without using an invite link"
+    );
   } catch (err) {
     logger.error(err);
   }
 };
 
-const onUserLeftGroup = async (
+const leftChatMemberUpdate = async (
   ctx: NarrowedContext<Context, any>
 ): Promise<void> => {
   const msg = ctx.update.message;
@@ -187,29 +229,38 @@ const onUserLeftGroup = async (
   }
 };
 
-const onChatMemberUpdate = async (
+const chatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.ChatMemberUpdate>
 ) => {
-  const member = ctx.update.chat_member;
+  const {
+    from: { id: userId },
+    chat: { id: groupId },
+    invite_link: invLink
+  } = ctx.update.chat_member;
 
-  if (member.invite_link) {
-    const invLink = member.invite_link.invite_link;
-    logger.verbose(`join inviteLink ${invLink}`);
-    const bot = await Bot.Client.getMe();
-    if (member.invite_link.creator.id === bot.id) {
-      logger.verbose(
-        `function: onChatMemberUpdate, user: ${member.from.id}, ` +
-          `chat: ${member.chat.id}, invite: ${invLink}`
-      );
+  try {
+    if (invLink) {
+      const { invite_link } = invLink;
 
-      onUserJoined(member.from.id, member.chat.id);
-    } else {
-      kickUser(
-        member.chat.id,
-        member.from.id,
-        "haven't joined through Guild interface!"
-      );
+      const bot = await Bot.Client.getMe();
+
+      if (invLink.creator.id === bot.id) {
+        logger.verbose({
+          message: "onChatMemberUpdate",
+          meta: {
+            groupId,
+            userId,
+            invite_link
+          }
+        });
+
+        onUserJoined(userId, groupId);
+      } else {
+        kickUser(groupId, userId, "haven't joined through Guild interface!");
+      }
     }
+  } catch (err) {
+    logger.error(err);
   }
 };
 
@@ -218,7 +269,7 @@ const onBlocked = async (
 ): Promise<void> => {
   const platformUserId = ctx.update.my_chat_member.from.id;
 
-  logger.verbose(`User "${platformUserId}" has blocked the bot.`);
+  logger.warn(`User "${platformUserId}" has blocked the bot.`);
 
   try {
     const communities = await fetchCommunitiesOfUser(platformUserId);
@@ -231,42 +282,44 @@ const onBlocked = async (
   }
 };
 
-const onMyChatMemberUpdate = async (
+const myChatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.MyChatMemberUpdate>
 ): Promise<void> => {
+  const { my_chat_member } = ctx.update;
+  const { chat, old_chat_member, new_chat_member } = my_chat_member;
+
   try {
-    if (ctx.update.my_chat_member.new_chat_member?.status === "kicked") {
+    if (old_chat_member?.status === "kicked") {
       onBlocked(ctx);
-    }
-    if (
-      ctx.update.my_chat_member.new_chat_member?.status === "member" ||
-      ctx.update.my_chat_member.old_chat_member?.status === "member"
+    } else if (
+      new_chat_member?.status === "member" ||
+      new_chat_member?.status === "administrator"
     ) {
-      const groupId = ctx.update.my_chat_member.chat.id;
-      if (ctx.update.my_chat_member.chat.type !== "supergroup")
+      const groupId = chat.id;
+
+      if (["supergroup", "channel"].includes(chat.type)) {
+        if (new_chat_member?.status === "administrator") {
+          await sendMessageForSupergroup(groupId);
+        } else {
+          await sendNotAnAdministrator(groupId);
+        }
+      } else {
         await sendNotASuperGroup(groupId);
-      else if (
-        ctx.update.my_chat_member.new_chat_member?.status === "administrator"
-      ) {
-        await Bot.Client.sendMessage(
-          groupId,
-          `The Guild Bot has administrator privileges from now! We are ready to roll!`
-        );
-        await sendMessageForSupergroup(groupId);
-      } else await sendNotAnAdministrator(groupId);
+      }
     }
-  } catch (error) {
-    logger.error(`Error while calling onUserJoinedGroup:\n${error}`);
+  } catch (err) {
+    logger.error(err);
   }
 };
 
 export {
-  onMessage,
-  onChannelPost,
+  messageUpdate,
+  channelPostUpdate,
   onUserJoined,
-  onUserLeftGroup,
+  newChatMembersUpdate,
+  leftChatMemberUpdate,
   onUserRemoved,
-  onChatMemberUpdate,
-  onMyChatMemberUpdate,
+  chatMemberUpdate,
+  myChatMemberUpdate,
   onBlocked
 };
