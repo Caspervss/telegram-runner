@@ -1,62 +1,72 @@
-type StoragePoll = {
-  chatId: string;
-  question: string;
-  options: string[];
-  date: string;
-};
+import { NewPoll } from "./types";
 
-const pollOfUser: Map<string, StoragePoll> = new Map();
+const pollOfUser: Map<string, NewPoll> = new Map();
 const userStep: Map<string, number> = new Map();
 
-const setUserStep = (userId: string, step: number): void => {
-  userStep.set(userId, step);
+const setUserStep = (userId: number, step: number): void => {
+  userStep.set(userId.toString(), step);
 };
 
-const getUserStep = (userId: string): number => userStep.get(userId);
+const getUserStep = (userId: number): number => userStep.get(userId.toString());
 
-const initPoll = (userId: string, chatId: string): void => {
-  const pollOptions: string[] = [];
-  pollOfUser.set(userId, {
-    chatId,
+const initPoll = (userId: number, platformId: string): void => {
+  pollOfUser.set(userId.toString(), {
+    requirementId: 0,
+    platformId,
     question: "",
-    options: pollOptions,
-    date: ""
+    options: [],
+    expDate: ""
+  });
+
+  setUserStep(userId, 0);
+};
+
+const saveReqId = (userId: number, requirementId: number): void => {
+  pollOfUser.set(userId.toString(), {
+    ...pollOfUser.get(userId.toString()),
+    requirementId
   });
 };
 
-const savePollQuestion = (userId: string, question: string): void => {
-  const poll = pollOfUser.get(userId);
-  poll.question = question;
-  pollOfUser.set(userId, poll);
+const savePollQuestion = (userId: number | string, question: string): void => {
+  pollOfUser.set(userId.toString(), {
+    ...pollOfUser.get(userId.toString()),
+    question
+  });
 };
 
-const savePollOption = (userId: string, option: string): boolean => {
-  const poll = pollOfUser.get(userId);
+const savePollOption = (userId: number, option: string): boolean => {
+  const poll = pollOfUser.get(userId.toString());
+
   if (poll.options.includes(option)) {
     return false;
   }
+
   poll.options.push(option);
-  pollOfUser.set(userId, poll);
+  pollOfUser.set(userId.toString(), poll);
+
   return true;
 };
 
-const savePollExpDate = (userId: string, date: string): void => {
-  const poll = pollOfUser.get(userId);
-  poll.date = date;
-  pollOfUser.set(userId, poll);
+const savePollExpDate = (userId: number, expDate: string): void => {
+  pollOfUser.set(userId.toString(), {
+    ...pollOfUser.get(userId.toString()),
+    expDate
+  });
 };
 
-const getPoll = (userId: string) => pollOfUser.get(userId);
+const getPoll = (userId: number): NewPoll => pollOfUser.get(userId.toString());
 
-const deleteMemory = (userId: string) => {
-  userStep.set(userId, 0);
-  pollOfUser.delete(userId);
+const deleteMemory = (userId: number): void => {
+  userStep.set(userId.toString(), 0);
+  pollOfUser.delete(userId.toString());
 };
 
 export default {
   initPoll,
   setUserStep,
   getUserStep,
+  saveReqId,
   savePollQuestion,
   savePollOption,
   savePollExpDate,

@@ -1,4 +1,3 @@
-/* eslint-disable consistent-return */
 import axios, { AxiosResponse } from "axios";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -6,7 +5,7 @@ import { ErrorResult } from "../api/types";
 import Bot from "../Bot";
 import config from "../config";
 import pollStorage from "../service/pollStorage";
-import { Poll, UserVote } from "../service/types";
+import { Ctx, Poll } from "../service/types";
 import logger from "./logger";
 
 dayjs.extend(utc);
@@ -23,6 +22,7 @@ const getErrorResult = (error: any): ErrorResult => {
     errorMsg = error.response.description;
   } else {
     logger.error(error);
+
     errorMsg = "unknown error";
   }
 
@@ -35,191 +35,267 @@ const getErrorResult = (error: any): ErrorResult => {
   };
 };
 
-const logAxiosResponse = (res: AxiosResponse<any>) => {
+const logAxiosResponse = (res: AxiosResponse<any>): AxiosResponse<any> => {
   logger.verbose(
     `${res.status} ${res.statusText} data:${JSON.stringify(res.data)}`
   );
+
+  return res;
 };
 
 const extractBackendErrorMessage = (error: any) =>
   error.response?.data?.errors[0]?.msg;
 
-const updatePollText = async (poll: Poll): Promise<string> => {
-  let allVotes = 0;
-  let numOfVoters = 0;
-  let newPollText = `${poll.question}\n\n`;
+const sendPollTokenChooser = async (
+  ctx: Ctx,
+  platformUserId: number,
+  guildId: number
+): Promise<void> => {
+  const guildRes = await axios.get(`${config.backendUrl}/guild/${guildId}`);
 
-  const pollResult = await axios.get(
-    `${config.backendUrl}/poll/result/${poll.id}`
-  );
+  const guild = guildRes?.data;
 
-  logAxiosResponse(pollResult);
-  if (pollResult.data.length === 0) {
-    throw new Error("Poll query failed for counting result.");
+  if (!guild) {
+    ctx.reply("Something went wrong. Please try again or contact us.");
+
+    return;
   }
 
-  poll.options.forEach((option: string) => {
-    allVotes += pollResult.data[option];
-  });
-
-  poll.options.forEach((option) => {
-    newPollText = newPollText.concat(`${option}\n`);
-    if (pollResult.data[option] > 0) {
-      const persentage = ((pollResult.data[option] / allVotes) * 100).toFixed(
-        2
-      );
-      newPollText = newPollText.concat(`▫️${persentage}%\n\n`);
-    } else {
-      newPollText = newPollText.concat(`▫️0%\n\n`);
-    }
-  });
-
-  const votersResponse = await axios.get(
-    `${config.backendUrl}/poll/voters/${poll.id}`
+  const requirements = guildRes.data.roles[0].requirements.filter(
+    (requirement) => requirement.type === "ERC20"
   );
-  logAxiosResponse(votersResponse);
 
-  if (votersResponse.data.length === 0) {
-    throw new Error("Failed to query user votes.");
-  }
-
-  const votesByOption: {
-    [k: string]: UserVote[];
-  } = votersResponse.data;
-
-  poll.options.forEach((option: string) => {
-    numOfVoters += votesByOption[option].length;
-  });
-
-  newPollText = newPollText.concat(`👥${numOfVoters} person voted so far.`);
-
-  if (dayjs().isAfter(dayjs.unix(poll.expDate))) {
-    newPollText = newPollText.concat("\n\nPoll has already ended.");
-  } else {
-    newPollText = newPollText.concat(
-      `\n\nPoll ends on ${dayjs
-        .unix(poll.expDate)
-        .utc()
-        .format("YYYY-MM-DD HH:mm UTC")}`
+  if (requirements.length === 0) {
+    await Bot.Client.sendMessage(
+      platformUserId,
+      "Your guild has no requirement with an appropriate token standard." +
+        "Weighted polls only support ERC20."
     );
+
+    return;
   }
 
-  return newPollText;
-};
+  const tokenButtons = requirements.map((requirement) => {
+    const { name, chain, id } = requirement;
 
-const createVoteListText = async (
-  chatId: string,
-  poll: Poll
-): Promise<string> => {
-  let allVotes: number = 0;
-  let pollText: string = "Results:\n";
-
-  const pollResult = await axios.get(
-    `${config.backendUrl}/poll/result/${poll.id}`
-  );
-  logAxiosResponse(pollResult);
-  if (pollResult.data.length === 0) {
-    throw new Error("Poll query failed for listing votes.");
-  }
-
-  const votersResponse = await axios.get(
-    `${config.backendUrl}/poll/voters/${poll.id}`
-  );
-  logAxiosResponse(votersResponse);
-  if (votersResponse.data.length === 0) {
-    throw new Error("Failed to query user votes.");
-  }
-
-  poll.options.forEach((option: string) => {
-    allVotes += pollResult.data[option];
+    return [
+      {
+        text: `${name} on ${chain}`,
+        callback_data: `${name}-${chain};${id};ChooseRequirement`
+      }
+    ];
   });
 
-  const optionVotes: {
-    [k: string]: string[];
-  } = Object.fromEntries(poll.options.map((option) => [option, []]));
+  const group = (await ctx.getChat()) as { title: string };
 
-  const votesByOption: {
-    [k: string]: UserVote[];
-  } = votersResponse.data;
-
-  await Promise.all(
-    poll.options.map(async (option) => {
-      const votes = votesByOption[option];
-      await Promise.all(
-        votes.map(async (vote) => {
-          const ChatMember = await Bot.Client.getChatMember(
-            chatId,
-            parseInt(vote.tgId, 10)
-          ).catch(() => undefined);
-
-          if (!ChatMember) {
-            optionVotes[option].push(`Unknown_User ${vote.balance}\n`);
-          } else {
-            const username = ChatMember.user.first_name;
-            optionVotes[option].push(`${username} ${vote.balance}\n`);
-          }
-        })
-      );
-    })
-  );
-
-  poll.options.forEach((option: string) => {
-    pollText = pollText.concat(`\n▫️ ${option} - `);
-    if (pollResult.data[option] > 0) {
-      const persentage = ((pollResult.data[option] / allVotes) * 100).toFixed(
-        2
-      );
-      pollText = pollText.concat(`${persentage}%\n`);
-    } else {
-      pollText = pollText.concat(`0%\n`);
+  await Bot.Client.sendMessage(
+    platformUserId,
+    "You are creating a token-weighted emoji-based poll in the " +
+      `channel "${group.title}" of the guild "${guild.name}".\n\n` +
+      "You can use /reset or /cancel to restart or stop the process at any time.\n" +
+      "Don't worry, I will guide you through the whole process.\n\n" +
+      "First, please choose a token as the base of the weighted poll.",
+    {
+      reply_markup: {
+        inline_keyboard: tokenButtons
+      }
     }
-    pollText = pollText.concat(optionVotes[option].join(""));
-  });
-
-  return pollText;
+  );
 };
 
-const pollBildResponse = async (userId: string): Promise<boolean> => {
-  switch (pollStorage.getUserStep(userId)) {
-    case undefined:
-      await Bot.Client.sendMessage(
-        userId,
-        "Please use the /poll command in a guild."
-      );
-      return true;
-    case 0:
-      await Bot.Client.sendMessage(
-        userId,
-        "Please use the /poll command in a guild."
-      );
-      return true;
-    case 1:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have a question. Please send me the question of your poll."
-      );
-      return true;
-    case 2:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have a duration. Please send me the duration of your poll in DD:HH:mm format."
-      );
-      return true;
-    case 3:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have options. Please send me the first one."
-      );
-      return true;
-    case 4:
-      await Bot.Client.sendMessage(
-        userId,
-        "A poll must have more than one option. Please send me a second one."
-      );
-      return true;
-    default:
-      break;
+const initPoll = async (ctx: any): Promise<void> => {
+  const { update } = ctx;
+
+  let chatId: number;
+  let userId;
+
+  try {
+    if (update.channel_post) {
+      chatId = update.channel_post.chat.id;
+
+      const creatorId = (await Bot.Client.getChatAdministrators(chatId))
+        .filter((admin) => admin.status === "creator")
+        .map((admin) => admin.user.id)[0];
+
+      userId = String(creatorId);
+    } else {
+      chatId = update.message.chat.id;
+      userId = update.message.from.id;
+    }
+
+    const chatMember = await Bot.Client.getChatMember(chatId, userId);
+
+    const guildIdRes = await axios.get(
+      `${config.backendUrl}/guild/platformId/${chatId}`
+    );
+
+    const guildId = guildIdRes?.data?.id;
+
+    if (!guildId) {
+      await ctx.reply("Please use this command in a guild.");
+
+      return;
+    }
+
+    const isAdminRes = await axios.get(
+      `${config.backendUrl}/guild/isAdmin/${chatId}/${userId}`
+    );
+
+    if (isAdminRes?.data) {
+      await sendPollTokenChooser(ctx, userId, guildIdRes.data.id);
+
+      if (pollStorage.getPoll(userId)) {
+        await ctx.reply(
+          "You already have an ongoing poll creation process.\n" +
+            "You can cancel it using /cancel."
+        );
+
+        return;
+      }
+
+      pollStorage.initPoll(userId, chatId.toString());
+
+      if (update.channel_post) {
+        return;
+      }
+
+      if (!chatMember) {
+        await ctx.reply("Check your private messages!");
+
+        return;
+      }
+
+      const { username, first_name } = chatMember.user;
+
+      if (!username) {
+        await ctx.replyWithMarkdown(
+          `[${first_name}](tg://user?id=${userId}) please check your private messages!`
+        );
+
+        return;
+      }
+
+      await ctx.reply(`@${username} please check your private messages!`);
+    } else {
+      ctx.reply("Seems like you are not a guild admin.");
+    }
+  } catch (err) {
+    logger.error(err);
   }
+};
+
+const createPollText = async (
+  poll: Poll,
+  results = undefined
+): Promise<string> => {
+  const { id, question, options, expDate } = poll;
+
+  const [pollResults, numOfVoters] = results
+    ? results.data
+    : [options.map(() => 0), 0];
+
+  const allVotes = pollResults.reduce((a, b) => a + b, 0);
+
+  const optionsText = options
+    .map((option, idx) => {
+      const perc = (pollResults[idx] / (allVotes || 1)) * 100;
+
+      return `${String.fromCharCode("a".charCodeAt(0) + idx)}) ${option}\n▫️${
+        Number.isInteger(perc) ? perc : perc.toFixed(2)
+      }%`;
+    })
+    .join("\n\n");
+
+  dayjs.extend(utc);
+
+  const dateText = dayjs().isAfter(dayjs.unix(+expDate))
+    ? "Poll has already ended."
+    : `Poll ends on ${dayjs
+        .unix(+expDate)
+        .utc()
+        .format("YYYY-MM-DD HH:mm UTC")}`;
+
+  const votersText = `👥 ${numOfVoters} person${
+    numOfVoters === 1 ? "" : "s"
+  } voted so far.`;
+
+  return (
+    `**Poll #${id}: ${question}**\n\n` +
+    `${optionsText}\n\n${dateText}\n\n${votersText}`
+  );
+};
+
+const sendPollMessage = async (
+  platformId: string,
+  poll: Poll
+): Promise<number> => {
+  const pollText = await createPollText(poll);
+
+  const voteButtonRow: { text: string; callback_data: string }[][] =
+    poll.options.map((option, idx) => [
+      {
+        text: option,
+        callback_data: `${idx};${poll.id};Vote`
+      }
+    ]);
+
+  const msgId = (
+    await Bot.Client.sendMessage(platformId, pollText, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: voteButtonRow
+      }
+    })
+  ).message_id;
+
+  return msgId;
+};
+
+const pollBuildResponse = async (userId: number): Promise<boolean> => {
+  const poll = pollStorage.getPoll(userId);
+
+  if (poll) {
+    if (poll.requirementId === 0) {
+      await Bot.Client.sendMessage(
+        userId,
+        "You must choose a token for weighting."
+      );
+
+      return true;
+    }
+
+    if (poll.question === "") {
+      await Bot.Client.sendMessage(userId, "The poll must have a question.");
+
+      return true;
+    }
+
+    if (poll.options.length <= 1) {
+      await Bot.Client.sendMessage(
+        userId,
+        "The poll must have at least two options."
+      );
+
+      return true;
+    }
+
+    if (poll.expDate === "") {
+      await Bot.Client.sendMessage(
+        userId,
+        "The poll must have an expriation date."
+      );
+
+      return true;
+    }
+  } else {
+    await Bot.Client.sendMessage(
+      userId,
+      "You don't have an active poll creation process."
+    );
+
+    return true;
+  }
+
   return false;
 };
 
@@ -228,7 +304,9 @@ export {
   getErrorResult,
   logAxiosResponse,
   extractBackendErrorMessage,
-  updatePollText,
-  createVoteListText,
-  pollBildResponse
+  initPoll,
+  sendPollMessage,
+  createPollText,
+  pollBuildResponse,
+  sendPollTokenChooser
 };

@@ -25,8 +25,8 @@ export default class Bot {
       logger.verbose(`response time ${Date.now() - start}ms`);
     });
 
-    // inbuilt commands
-    bot.start(TGEvents.onChatStart);
+    // built-in commands
+    bot.start(TGCommands.startCommand);
     bot.help(TGCommands.helpCommand);
 
     // other commands
@@ -36,17 +36,19 @@ export default class Bot {
     bot.command("status", TGCommands.statusUpdateCommand);
     bot.command("groupid", TGCommands.groupIdCommand);
     bot.command("add", TGCommands.addCommand);
-    bot.command("poll", TGCommands.newPoll);
-    bot.command("done", TGCommands.startPoll);
-    bot.command("reset", TGCommands.resetPoll);
-    bot.command("cancel", TGCommands.cancelPoll);
+    bot.command("poll", TGCommands.pollCommand);
+    bot.command("enough", TGCommands.enoughCommand);
+    bot.command("done", TGCommands.doneCommand);
+    bot.command("reset", TGCommands.resetCommand);
+    bot.command("cancel", TGCommands.cancelCommand);
 
     // event listeners
-    bot.on("text", TGEvents.onMessage);
-    bot.on("left_chat_member", TGEvents.onUserLeftGroup);
-    bot.on("chat_member", TGEvents.onChatMemberUpdate);
-    bot.on("my_chat_member", TGEvents.onMyChatMemberUpdate);
-    bot.on("callback_query", TGEvents.onCallbackQuery);
+    bot.on("text", TGEvents.messageUpdate);
+    bot.on("channel_post", TGEvents.channelPostUpdate);
+    bot.on("new_chat_members", TGEvents.newChatMembersUpdate);
+    bot.on("left_chat_member", TGEvents.leftChatMemberUpdate);
+    bot.on("chat_member", TGEvents.chatMemberUpdate);
+    bot.on("my_chat_member", TGEvents.myChatMemberUpdate);
 
     // action listeners
     bot.action(
@@ -57,6 +59,8 @@ export default class Bot {
       /^leave_confirmed_[0-9]+$/,
       TGActions.confirmedLeaveCommunityAction
     );
+    bot.action(/;ChooseRequirement$/, TGActions.chooseRequirementAction);
+    bot.action(/;Vote$/, TGActions.voteAction);
 
     // starting the bot
     bot.launch({
@@ -64,10 +68,13 @@ export default class Bot {
         "chat_member",
         "my_chat_member",
         "message",
+        "channel_post",
+        "chosen_inline_result",
         "callback_query"
       ]
     });
 
+    // logging middleware for bot errors
     bot.catch((err) => {
       logger.error(err);
     });
@@ -76,6 +83,6 @@ export default class Bot {
     process.once("SIGINT", () => bot.stop("SIGINT"));
     process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
-    logger.verbose("Medousa is alive...");
+    logger.verbose("Guild bot is alive...");
   }
 }

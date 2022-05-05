@@ -1,8 +1,14 @@
+import axios from "axios";
+import dayjs from "dayjs";
 import { Markup } from "telegraf";
+import Bot from "../Bot";
+import config from "../config";
 import logger from "../utils/logger";
+import { createPollText } from "../utils/utils";
 import { leaveCommunity } from "./common";
+import pollStorage from "./pollStorage";
 
-const confirmLeaveCommunityAction = (ctx: any): void => {
+const confirmLeaveCommunityAction = async (ctx: any): Promise<void> => {
   const data = ctx.match[0];
   const commId = data.split("_")[2];
   const commName = data.split(`leave_confirm_${commId}_`)[1];
@@ -16,74 +22,109 @@ const confirmLeaveCommunityAction = (ctx: any): void => {
   );
 };
 
-const confirmedLeaveCommunityAction = (ctx: any): void => {
+const confirmedLeaveCommunityAction = async (ctx: any): Promise<void> => {
   leaveCommunity(
     ctx.update.callback_query.from.id,
     ctx.match[0].split("leave_confirmed_")[1]
   );
 };
 
-const createGroup = async (title: string) => {
-  logger.verbose(`createGroup ${title}`);
-  // TODO mtproto implementation
-  // const { username } = await Bot.Client.getMe();
-  // const userResult = await mtprotoApi.call("contacts.resolveUsername", {
-  //   username
-  // });
-  // logger.verbose(`userResult ${JSON.stringify(userResult)}`);
-  // const user_id = {
-  //   _: "inputUser",
-  //   user_id: userResult.users[0].id,
-  //   access_hash: userResult.users[0].access_hash
-  // };
+const chooseRequirementAction = async (ctx: any): Promise<void> => {
+  try {
+    const { message: msg, data } = ctx.update.callback_query;
+    const {
+      message_id,
+      chat: { id: chatId }
+    } = msg;
+    const [requrementInfo, requrementId] = data.split(";");
 
-  // logger.verbose(`userResult ${user_id}`);
+    pollStorage.saveReqId(chatId, requrementId);
 
-  // const supergroupResult = await mtprotoApi.call("channels.createChannel", {
-  //   megagroup: true,
-  //   title
-  // });
+    const [name, chain] = requrementInfo.split("-");
 
-  // logger.verbose(`supergroupResult ${JSON.stringify(supergroupResult)}`);
+    await Bot.Client.editMessageText(
+      chatId,
+      message_id,
+      undefined,
+      `Your have chosen ${name} on ${chain}`
+    );
 
-  // const channel = {
-  //   _: "inputChannel",
-  //   channel_id: supergroupResult.chats[0].id,
-  //   access_hash: supergroupResult.chats[0].access_hash
-  // };
+    pollStorage.setUserStep(chatId, 1);
 
-  // logger.verbose(`channel ${JSON.stringify(channel)}`);
+    await Bot.Client.sendMessage(
+      chatId,
+      "Please give me the subject of the poll. For example:\n" +
+        '"Do you think drinking milk is cool?"'
+    );
+  } catch (err) {
+    logger.error(err);
+  }
+};
 
-  // await mtprotoApi.call("channels.inviteToChannel", {
-  //   channel,
-  //   users: [user_id]
-  // });
+const voteAction = async (ctx: any): Promise<void> => {
+  try {
+    const { message: msg, data, from } = ctx.update.callback_query;
+    const [optionIndex, pollId] = data.split(";");
+    const pollResponse = await axios.get(`${config.backendUrl}/poll/${pollId}`);
+    const chatId = msg.chat.id;
+    const pollText = msg.text;
 
-  // await mtprotoApi.call("channels.editAdmin", {
-  //   channel,
-  //   user_id,
-  //   admin_rights: {
-  //     _: "chatAdminRights",
-  //     change_info: true,
-  //     post_messages: true,
-  //     edit_messages: true,
-  //     delete_messages: true,
-  //     ban_users: true,
-  //     invite_users: true,
-  //     pin_messages: true,
-  //     add_admins: true
-  //   },
-  //   rank: "Medusa"
-  // });
+    const poll = pollResponse?.data;
 
-  // await mtprotoApi.call("channels.leaveChannel", { channel });
+    if (!poll) {
+      return;
+    }
 
-  // return `-100${channel.channel_id}`;
-  return -1;
+    if (dayjs().isBefore(dayjs.unix(poll.expDate))) {
+      await axios.post(`${config.backendUrl}/poll/vote`, {
+        platform: config.platform,
+        pollId,
+        platformUserId: from.id,
+        optionIndex
+      });
+    }
+
+    const results = await axios.get(
+      `${config.backendUrl}/poll/results/${pollId}`
+    );
+
+    const newPollText = await createPollText(poll, results);
+
+    if (pollText.trim() === newPollText.trim()) {
+      return;
+    }
+
+    const voteButtonRow = poll.options.map((option, idx) => [
+      {
+        text: option,
+        callback_data: `${idx};${poll.id};Vote`
+      }
+    ]);
+
+    try {
+      await Bot.Client.editMessageText(
+        chatId,
+        msg.message_id,
+        undefined,
+        newPollText,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: voteButtonRow
+          }
+        }
+      );
+    } catch (err) {
+      logger.warn("Couldn't update message text");
+    }
+  } catch (err) {
+    logger.error(err);
+  }
 };
 
 export {
   confirmLeaveCommunityAction,
   confirmedLeaveCommunityAction,
-  createGroup
+  chooseRequirementAction,
+  voteAction
 };

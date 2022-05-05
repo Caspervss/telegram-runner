@@ -3,23 +3,24 @@ import { CommunityResult } from "../api/types";
 import Bot from "../Bot";
 import config from "../config";
 import logger from "../utils/logger";
-import { logAxiosResponse } from "../utils/utils";
 
-const getGroupName = async (groupId: number): Promise<string> =>
-  ((await Bot.Client.getChat(groupId)) as { title: string }).title;
+const getGroupName = async (groupId: number): Promise<string> => {
+  const group = (await Bot.Client.getChat(groupId)) as { title: string };
+
+  return group.title;
+};
 
 const fetchCommunitiesOfUser = async (
   platformUserId: number
 ): Promise<CommunityResult[]> => {
-  logger.verbose(
-    `Called fetchCommunitiesOfUser, platformUserId=${platformUserId}`
-  );
+  logger.verbose({
+    message: "fetchCommunitiesOfUser",
+    meta: { platformUserId }
+  });
 
   const res = await axios.get(
     `${config.backendUrl}/communities/${platformUserId}`
   );
-
-  logAxiosResponse(res);
 
   return (res.data as CommunityResult[]).filter(
     (community) => community.telegramIsMember
@@ -30,9 +31,10 @@ const leaveCommunity = async (
   platformUserId: number,
   communityId: string
 ): Promise<void> => {
-  logger.verbose(
-    `Called leaveCommunity, platformUserId=${platformUserId}, communityId=${communityId}`
-  );
+  logger.verbose({
+    message: "leaveCommunity",
+    meta: { platformUserId, communityId }
+  });
 
   try {
     const res = await axios.post(
@@ -45,8 +47,6 @@ const leaveCommunity = async (
       }
     );
 
-    logAxiosResponse(res);
-
     logger.debug(JSON.stringify(res.data));
   } catch (err) {
     logger.error(err);
@@ -55,29 +55,30 @@ const leaveCommunity = async (
 
 const kickUser = async (
   groupId: number,
-  platformUserId: number,
+  userId: number,
   reason: string
 ): Promise<void> => {
-  logger.verbose(
-    `Called kickUser, groupId=${groupId}, platformUserId=${platformUserId}, ` +
-      `reason=${reason}`
-  );
+  logger.verbose({
+    message: "kickUser",
+    meta: { groupId, userId, reason }
+  });
 
   try {
-    await Bot.Client.kickChatMember(groupId, +platformUserId);
+    await Bot.Client.banChatMember(groupId, +userId);
 
     const groupName = await getGroupName(groupId);
 
-    await Bot.Client.sendMessage(
-      platformUserId,
-      "You have been kicked from the group " +
-        `${groupName}, because you ${reason}.`
-    );
+    try {
+      await Bot.Client.sendMessage(
+        userId,
+        "You have been kicked from the group " +
+          `${groupName}, because you ${reason}.`
+      );
+    } catch (_) {
+      logger.warn(`The bot can't initiate conversation with user "${userId}"`);
+    }
   } catch (err) {
-    logger.error(
-      "An error occured while trying to remove a Telegram user with userId " +
-        `"${platformUserId}", because:\n${err}`
-    );
+    logger.error(err);
   }
 };
 
@@ -86,26 +87,35 @@ const sendMessageForSupergroup = async (groupId: number) => {
 
   await Bot.Client.sendMessage(
     groupId,
-    `This is the group ID of "${groupName}":\n \`${groupId}\` . Paste it to the Guild creation interface!`,
+    `This is the group ID of "${groupName}": \`${groupId}\` .\n` +
+      "Paste it to the Guild creation interface!",
     { parse_mode: "Markdown" }
   );
-  await Bot.Client.sendPhoto(groupId, `${config.assets.groupIdImage}`);
+  await Bot.Client.sendPhoto(groupId, config.assets.groupIdImage);
+  await Bot.Client.sendMessage(
+    groupId,
+    "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild",
+    { parse_mode: "Markdown" }
+  );
 };
 
 const sendNotASuperGroup = async (groupId: number) => {
   await Bot.Client.sendMessage(
     groupId,
-    `This Group is currently not a Supergroup. Please convert your Group into Supergroup first. There is a tutorial GIF in the attachment.`
+    "This Group is currently not a Supergroup.\n" +
+      "Please make sure to enable *all of the admin rights* for the bot.",
+    { parse_mode: "Markdown" }
   );
-  await Bot.Client.sendAnimation(groupId, `${config.assets.supergroupVideo}`);
+  await Bot.Client.sendAnimation(groupId, config.assets.adminVideo);
 };
 
 const sendNotAnAdministrator = async (groupId: number) => {
   await Bot.Client.sendMessage(
     groupId,
-    `The Guildxyz_bot hasn't got the right permissions to manage this group. Please make sure, our Bot has administrator permissions.`
+    "Please make sure to enable *all of the admin rights* for the bot.",
+    { parse_mode: "Markdown" }
   );
-  await Bot.Client.sendAnimation(groupId, `${config.assets.adminVideo}`);
+  await Bot.Client.sendAnimation(groupId, config.assets.adminVideo);
 };
 
 export {

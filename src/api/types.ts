@@ -27,10 +27,6 @@ type ErrorResult = {
   errors: { msg: string }[];
 };
 
-type CreateGroupParam = {
-  title: string;
-};
-
 type IsInResult =
   | { ok: false; message: string }
   | {
@@ -45,6 +41,5 @@ export {
   CommunityResult,
   LevelInfo,
   ErrorResult,
-  CreateGroupParam,
   IsInResult
 };
