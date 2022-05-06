@@ -45,7 +45,6 @@ export default class Bot {
     // event listeners
     bot.on("text", TGEvents.messageUpdate);
     bot.on("channel_post", TGEvents.channelPostUpdate);
-    bot.on("new_chat_members", TGEvents.newChatMembersUpdate);
     bot.on("left_chat_member", TGEvents.leftChatMemberUpdate);
     bot.on("chat_member", TGEvents.chatMemberUpdate);
     bot.on("my_chat_member", TGEvents.myChatMemberUpdate);

@@ -36,9 +36,7 @@ const messageUpdate = async (
           pollStorage.savePollQuestion(userId, messageText);
           pollStorage.setUserStep(userId, 2);
 
-          await ctx.reply(
-            "Please give me the options for the poll (one by one)."
-          );
+          await ctx.reply("Please give me the first option of your poll.");
 
           return;
         }
@@ -201,24 +199,6 @@ const onUserRemoved = async (
   }
 };
 
-const newChatMembersUpdate = async (
-  ctx: NarrowedContext<Context, any>
-): Promise<void> => {
-  const msg = ctx.update.message;
-  const groupId = msg.chat.id;
-  const userId = msg.new_chat_member.id;
-
-  try {
-    kickUser(
-      groupId,
-      userId,
-      "have joined the group without using an invite link"
-    );
-  } catch (err) {
-    logger.error(err);
-  }
-};
-
 const leftChatMemberUpdate = async (
   ctx: NarrowedContext<Context, any>
 ): Promise<void> => {
@@ -235,32 +215,42 @@ const chatMemberUpdate = async (
   const {
     from: { id: userId },
     chat: { id: groupId },
+    new_chat_member,
     invite_link: invLink
   } = ctx.update.chat_member;
 
-  try {
-    if (invLink) {
-      const { invite_link } = invLink;
+  if (new_chat_member?.status === "member") {
+    try {
+      if (invLink) {
+        const { invite_link } = invLink;
 
-      const bot = await Bot.Client.getMe();
+        const bot = await Bot.Client.getMe();
 
-      if (invLink.creator.id === bot.id) {
-        logger.verbose({
-          message: "onChatMemberUpdate",
-          meta: {
-            groupId,
-            userId,
-            invite_link
-          }
-        });
+        if (invLink.creator.id === bot.id) {
+          logger.verbose({
+            message: "onChatMemberUpdate",
+            meta: {
+              groupId,
+              userId,
+              invite_link
+            }
+          });
 
-        onUserJoined(userId, groupId);
+          onUserJoined(userId, groupId);
+        } else {
+          kickUser(groupId, userId, "haven't joined through Guild interface!");
+        }
       } else {
-        kickUser(groupId, userId, "haven't joined through Guild interface!");
+        kickUser(
+          groupId,
+          new_chat_member.user.id,
+          "have joined the group without using an invite link.\n" +
+            "If this is not the case then the admins did not set up the guild properly."
+        );
       }
+    } catch (err) {
+      logger.error(err);
     }
-  } catch (err) {
-    logger.error(err);
   }
 };
 
@@ -316,7 +306,6 @@ export {
   messageUpdate,
   channelPostUpdate,
   onUserJoined,
-  newChatMembersUpdate,
   leftChatMemberUpdate,
   onUserRemoved,
   chatMemberUpdate,
