@@ -3,7 +3,7 @@ name: Branch based docker build and publish
 # Language: typescript
 # Version: 2.0.0
 # Runner: self-hosted
-# Visibility: private
+# Visibility: public
 
 on:
   push:
