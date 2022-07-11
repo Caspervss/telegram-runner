@@ -1,16 +1,21 @@
-import axios from "axios";
+import { Platform, setApiBaseUrl, setProjectName } from "@guildxyz/sdk";
 import api from "./api/api";
 import Bot from "./Bot";
 import config from "./config";
-import { logAxiosResponse } from "./utils/utils";
+import logger from "./utils/logger";
 
 export default class Main {
-  static start(): void {
+  public static platform: Platform;
+
+  public static async start(): Promise<void> {
+    // setup sdk
+    setApiBaseUrl(config.backendUrl);
+    setProjectName("TELEGRAM connector");
+    logger.info(`Backend url set to ${config.backendUrl}`);
+    this.platform = new Platform(config.platform);
+
     // start listener
     api();
-
-    // log all axios responses
-    axios.interceptors.response.use(logAxiosResponse);
 
     // setup the Telegram bot
     Bot.setup(config.telegramToken);

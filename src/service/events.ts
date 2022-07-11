@@ -2,13 +2,12 @@ import axios from "axios";
 import { Context, NarrowedContext } from "telegraf";
 import { Update } from "telegraf/types";
 import dayjs from "dayjs";
+import { GuildPlatformData } from "@guildxyz/sdk";
 import Bot from "../Bot";
 import {
   sendMessageForSupergroup,
   sendNotASuperGroup,
   sendNotAnAdministrator,
-  fetchCommunitiesOfUser,
-  leaveCommunity,
   kickUser
 } from "./common";
 import config from "../config";
@@ -16,6 +15,7 @@ import logger from "../utils/logger";
 import { createPollText, initPoll } from "../utils/utils";
 import pollStorage from "./pollStorage";
 import { Poll } from "./types";
+import Main from "../Main";
 
 const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
@@ -34,14 +34,39 @@ const messageUpdate = async (
       switch (pollStorage.getUserStep(userId)) {
         case 1: {
           pollStorage.savePollQuestion(userId, messageText);
-          pollStorage.setUserStep(userId, 2);
+
+          const buttons = [
+            [
+              {
+                text: "Yes",
+                callback_data: "desc;yes"
+              },
+              {
+                text: "No",
+                callback_data: "desc;no"
+              }
+            ]
+          ];
+
+          await ctx.reply("Do you want to add a description for the poll?", {
+            reply_markup: {
+              inline_keyboard: buttons
+            }
+          });
+
+          return;
+        }
+
+        case 2: {
+          pollStorage.savePollDescription(userId, messageText);
+          pollStorage.setUserStep(userId, 3);
 
           await ctx.reply("Please give me the first option of your poll.");
 
           return;
         }
 
-        case 2: {
+        case 3: {
           const optionSaved = pollStorage.savePollOption(userId, messageText);
 
           if (!optionSaved) {
@@ -61,14 +86,15 @@ const messageUpdate = async (
           return;
         }
 
-        case 3: {
+        case 4: {
           const dateRegex =
             /([1-9][0-9]*|[0-9]):([0-1][0-9]|[0-9]|[2][0-4]):([0-5][0-9]|[0-9])/;
           const found = messageText.match(dateRegex);
 
           if (!found) {
             await ctx.reply(
-              "The message you sent me is not in the DD:HH:mm format. Please verify the contents of your message and send again."
+              "The message you sent me is not in the DD:HH:mm format.\n" +
+                "Please verify the contents of your message and send again."
             );
 
             return;
@@ -131,7 +157,7 @@ const channelPostUpdate = async (
   switch (post.text) {
     case "/poll": {
       await initPoll(ctx);
-      await Bot.Client.deleteMessage(channelId, post.message_id);
+      await Bot.client.deleteMessage(channelId, post.message_id);
 
       break;
     }
@@ -149,7 +175,7 @@ const channelPostUpdate = async (
     }
 
     case "/channelid": {
-      ctx.reply(String(channelId), {
+      ctx.replyWithMarkdown(`\`${channelId}\``, {
         reply_to_message_id: post.message_id
       });
 
@@ -164,16 +190,14 @@ const channelPostUpdate = async (
 
 const onUserJoined = async (
   platformUserId: number,
-  groupId: number
+  platformGuildId: number
 ): Promise<void> => {
   try {
-    const res = await axios.post(`${config.backendUrl}/user/joinedPlatform`, {
-      platform: config.platform,
+    await axios.post(`${config.backendUrl}/user/joinedPlatform`, {
+      platformName: config.platform,
       platformUserId,
-      groupId
+      platformGuildId
     });
-
-    logger.debug(JSON.stringify(res.data));
   } catch (err) {
     logger.error(err);
   }
@@ -194,8 +218,8 @@ const onUserRemoved = async (
     );
 
     logger.debug(JSON.stringify(res.data));
-  } catch (_) {
-    logger.error("Failed to remove user from Guild.");
+  } catch (err) {
+    logger.error(err.message);
   }
 };
 
@@ -224,7 +248,7 @@ const chatMemberUpdate = async (
       if (invLink) {
         const { invite_link } = invLink;
 
-        const bot = await Bot.Client.getMe();
+        const bot = await Bot.client.getMe();
 
         if (invLink.creator.id === bot.id) {
           logger.verbose({
@@ -254,24 +278,6 @@ const chatMemberUpdate = async (
   }
 };
 
-const onBlocked = async (
-  ctx: NarrowedContext<Context, Update.MyChatMemberUpdate>
-): Promise<void> => {
-  const platformUserId = ctx.update.my_chat_member.from.id;
-
-  logger.warn(`User "${platformUserId}" has blocked the bot.`);
-
-  try {
-    const communities = await fetchCommunitiesOfUser(platformUserId);
-
-    communities.map(async (community) =>
-      leaveCommunity(platformUserId, community.id)
-    );
-  } catch (err) {
-    logger.error(err);
-  }
-};
-
 const myChatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.MyChatMemberUpdate>
 ): Promise<void> => {
@@ -280,7 +286,8 @@ const myChatMemberUpdate = async (
 
   try {
     if (old_chat_member?.status === "kicked") {
-      onBlocked(ctx);
+      // onBlocked(ctx);
+      logger.warn(`User ${chat.id} has blocked the bot.`);
     } else if (
       new_chat_member?.status === "member" ||
       new_chat_member?.status === "administrator"
@@ -302,6 +309,48 @@ const myChatMemberUpdate = async (
   }
 };
 
+const joinRequestUpdate = async (
+  ctx: NarrowedContext<Context, Update.ChatJoinRequestUpdate>
+): Promise<void> => {
+  const { chatJoinRequest } = ctx;
+  const platformGuildId = chatJoinRequest.chat.id;
+  const platformUserId = chatJoinRequest.from.id;
+
+  let access: GuildPlatformData;
+
+  try {
+    access = await Main.platform.guild.getUserAccess(
+      platformGuildId.toString(),
+      platformUserId.toString()
+    );
+  } catch (error) {
+    if (
+      error?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")
+    ) {
+      logger.error("No guild is associated with this group.");
+    } else if (
+      error?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
+    ) {
+      await Main.platform.user.join(
+        platformGuildId.toString(),
+        platformUserId.toString()
+      );
+    } else {
+      logger.error(error);
+    }
+
+    return;
+  }
+
+  if (!access || access.roles?.length === 0) {
+    await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
+
+    return;
+  }
+
+  await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
+};
+
 export {
   messageUpdate,
   channelPostUpdate,
@@ -310,5 +359,5 @@ export {
   onUserRemoved,
   chatMemberUpdate,
   myChatMemberUpdate,
-  onBlocked
+  joinRequestUpdate
 };

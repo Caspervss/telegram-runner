@@ -46,6 +46,45 @@ const logAxiosResponse = (res: AxiosResponse<any>): AxiosResponse<any> => {
 const extractBackendErrorMessage = (error: any) =>
   error.response?.data?.errors[0]?.msg;
 
+const getRequirement = (requirement) => {
+  const { id, type, symbol, name, address, chain } = requirement;
+
+  let req: string;
+
+  switch (type) {
+    case "ERC20":
+    case "ERC721":
+    case "ERC1155": {
+      req =
+        name !== "-"
+          ? name
+          : `${address.substring(0, 5)}...${address.substring(38, 42)}`;
+      break;
+    }
+
+    case "COIN": {
+      req = name !== "-" ? name : symbol;
+      break;
+    }
+
+    case "ALLOWLIST": {
+      req = "Allowlist";
+      break;
+    }
+
+    case "FREE": {
+      req = "Free";
+      break;
+    }
+
+    default: {
+      break;
+    }
+  }
+
+  return { id, type, name: req, chain };
+};
+
 const sendPollTokenChooser = async (
   ctx: Ctx,
   platformUserId: number,
@@ -62,21 +101,21 @@ const sendPollTokenChooser = async (
   }
 
   const requirements = guildRes.data.roles[0].requirements.filter(
-    (requirement) => requirement.type === "ERC20"
+    (requirement) =>
+      requirement.type.match(/^(ERC(20|721|1155)|COIN|ALLOWLIST|FREE)$/)
   );
 
   if (requirements.length === 0) {
-    await Bot.Client.sendMessage(
+    await Bot.client.sendMessage(
       platformUserId,
-      "Your guild has no requirement with an appropriate token standard." +
-        "Weighted polls only support ERC20."
+      "Your guild doesn't support polls."
     );
 
     return;
   }
 
   const tokenButtons = requirements.map((requirement) => {
-    const { name, chain, id } = requirement;
+    const { name, chain, id } = getRequirement(requirement);
 
     return [
       {
@@ -86,12 +125,12 @@ const sendPollTokenChooser = async (
     ];
   });
 
-  const group = (await ctx.getChat()) as { title: string };
+  const group = (await ctx.getChat()) as { type: string; title: string };
+  const chatType = group.type;
 
-  await Bot.Client.sendMessage(
+  await Bot.client.sendMessage(
     platformUserId,
-    "You are creating a token-weighted emoji-based poll in the " +
-      `channel "${group.title}" of the guild "${guild.name}".\n\n` +
+    `You are creating a token-weighted poll in the ${chatType} "${group.title}".\n\n` +
       "You can use /reset or /cancel to restart or stop the process at any time.\n" +
       "Don't worry, I will guide you through the whole process.\n\n" +
       "First, please choose a token as the base of the weighted poll.",
@@ -113,7 +152,7 @@ const initPoll = async (ctx: any): Promise<void> => {
     if (update.channel_post) {
       chatId = update.channel_post.chat.id;
 
-      const creatorId = (await Bot.Client.getChatAdministrators(chatId))
+      const creatorId = (await Bot.client.getChatAdministrators(chatId))
         .filter((admin) => admin.status === "creator")
         .map((admin) => admin.user.id)[0];
 
@@ -123,7 +162,7 @@ const initPoll = async (ctx: any): Promise<void> => {
       userId = update.message.from.id;
     }
 
-    const chatMember = await Bot.Client.getChatMember(chatId, userId);
+    const chatMember = await Bot.client.getChatMember(chatId, userId);
 
     const guildIdRes = await axios.get(
       `${config.backendUrl}/guild/platformId/${chatId}`
@@ -188,7 +227,15 @@ const createPollText = async (
   poll: Poll,
   results = undefined
 ): Promise<string> => {
-  const { id, question, options, expDate } = poll;
+  const {
+    id,
+    requirementId,
+    platformId,
+    question,
+    description,
+    options,
+    expDate
+  } = poll;
 
   const [pollResults, numOfVoters] = results
     ? results.data
@@ -215,14 +262,27 @@ const createPollText = async (
         .utc()
         .format("YYYY-MM-DD HH:mm UTC")}`;
 
+  const guildRes = await axios.get(
+    `${config.backendUrl}/guild/platformId/${platformId}`
+  );
+
+  const requirements = guildRes?.data?.roles[0]?.requirements.filter(
+    (req) => req.id === requirementId
+  );
+
+  const { type, name, chain } = getRequirement(requirements[0]);
+
+  const requirementText = type.match(/^(ALLOWLIST|FREE)$/)
+    ? ""
+    : `This poll is weighted by the "${name}" token on the "${chain}" chain.\n\n`;
+
   const votersText = `👥 ${numOfVoters} person${
     numOfVoters === 1 ? "" : "s"
   } voted so far.`;
 
-  return (
-    `**Poll #${id}: ${question}**\n\n` +
-    `${optionsText}\n\n${dateText}\n\n${votersText}`
-  );
+  return `**Poll #${id}: ${question}**\n\n${
+    description ? `${description}\n\n` : ""
+  }${optionsText}\n\n${dateText}\n\n${requirementText}${votersText}`;
 };
 
 const sendPollMessage = async (
@@ -240,7 +300,7 @@ const sendPollMessage = async (
     ]);
 
   const msgId = (
-    await Bot.Client.sendMessage(platformId, pollText, {
+    await Bot.client.sendMessage(platformId, pollText, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: voteButtonRow
@@ -256,7 +316,7 @@ const pollBuildResponse = async (userId: number): Promise<boolean> => {
 
   if (poll) {
     if (poll.requirementId === 0) {
-      await Bot.Client.sendMessage(
+      await Bot.client.sendMessage(
         userId,
         "You must choose a token for weighting."
       );
@@ -265,13 +325,13 @@ const pollBuildResponse = async (userId: number): Promise<boolean> => {
     }
 
     if (poll.question === "") {
-      await Bot.Client.sendMessage(userId, "The poll must have a question.");
+      await Bot.client.sendMessage(userId, "The poll must have a question.");
 
       return true;
     }
 
     if (poll.options.length <= 1) {
-      await Bot.Client.sendMessage(
+      await Bot.client.sendMessage(
         userId,
         "The poll must have at least two options."
       );
@@ -280,7 +340,7 @@ const pollBuildResponse = async (userId: number): Promise<boolean> => {
     }
 
     if (poll.expDate === "") {
-      await Bot.Client.sendMessage(
+      await Bot.client.sendMessage(
         userId,
         "The poll must have an expriation date."
       );
@@ -288,7 +348,7 @@ const pollBuildResponse = async (userId: number): Promise<boolean> => {
       return true;
     }
   } else {
-    await Bot.Client.sendMessage(
+    await Bot.client.sendMessage(
       userId,
       "You don't have an active poll creation process."
     );
