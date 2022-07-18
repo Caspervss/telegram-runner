@@ -1,4 +1,4 @@
-import dayjs from "dayjs";
+// import dayjs from "dayjs";
 import { isMember } from "../api/actions";
 import Bot from "../Bot";
 import config from "../config";
@@ -38,16 +38,18 @@ const kickUser = async (
   });
 
   try {
-    await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 30);
-
-    const groupName = await getGroupName(groupId);
+    // KICK Disabled
+    // await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 30);
+    // const groupName = await getGroupName(groupId);
 
     try {
-      await Bot.client.sendMessage(
-        userId,
-        "You have been kicked from the group " +
-          `${groupName}${reason ? `, because you ${reason}` : ""}.`
-      );
+      // KICK Disabled
+
+      // await Bot.client.sendMessage(
+      //   userId,
+      //   "You have been kicked from the group " +
+      //     `${groupName}${reason ? `, because you ${reason}` : ""}.`
+      // );
 
       return {
         success: await isMember(groupId.toString(), userId),
