@@ -262,7 +262,7 @@ const chatMemberUpdate = async (
 
           onUserJoined(userId, groupId);
         } else {
-          kickUser(groupId, userId, "haven't joined through Guild interface!");
+          kickUser(groupId, userId, "haven't joined through Guild interface");
         }
       } else {
         kickUser(

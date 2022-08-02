@@ -21,19 +21,19 @@ type IsInResult =
       ok: true;
     };
 
+type PlatformRoleResponse = {
+  roleName: string;
+  platformRoleId: string;
+  platformRoleData: any;
+};
+
 type AccessEventParams = {
   action: "ADD" | "REMOVE";
   platformUserId: string;
   platformGuildId: string;
   guildName: string;
   platformGuildData: { inviteChannel: string };
-  roles: {
-    roleName: string;
-    platformRoleId: string;
-    platformRoleData?: {
-      isGuarded?: boolean;
-    };
-  }[];
+  roles: PlatformRoleResponse[];
 };
 
 type GuildEventParams = {

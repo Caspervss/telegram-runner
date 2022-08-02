@@ -1,4 +1,5 @@
 // import dayjs from "dayjs";
+import dayjs from "dayjs";
 import { isMember } from "../api/actions";
 import Bot from "../Bot";
 import config from "../config";
@@ -14,13 +15,10 @@ const getGroupName = async (groupId: number): Promise<string> => {
 const generateInvite = async (groupId: string): Promise<string | undefined> => {
   try {
     return (
-      ((await Bot.client.getChat(groupId)) as any).invite_link ||
-      (
-        await Bot.client.createChatInviteLink(groupId, {
-          creates_join_request: true
-        })
-      ).invite_link
-    );
+      await Bot.client.createChatInviteLink(groupId, {
+        creates_join_request: true
+      })
+    ).invite_link;
   } catch (err) {
     logger.error(err);
     return undefined;
@@ -38,21 +36,18 @@ const kickUser = async (
   });
 
   try {
-    // KICK Disabled
-    // await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 30);
-    // const groupName = await getGroupName(groupId);
+    await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 30);
+    const groupName = await getGroupName(groupId);
 
     try {
-      // KICK Disabled
-
-      // await Bot.client.sendMessage(
-      //   userId,
-      //   "You have been kicked from the group " +
-      //     `${groupName}${reason ? `, because you ${reason}` : ""}.`
-      // );
+      await Bot.client.sendMessage(
+        userId,
+        "You have been kicked from the group " +
+          `${groupName}${reason ? `, because you ${reason}` : ""}.`
+      );
 
       return {
-        success: await isMember(groupId.toString(), userId),
+        success: !(await isMember(groupId.toString(), userId)),
         errorMsg: null
       };
     } catch (_) {
@@ -60,7 +55,10 @@ const kickUser = async (
 
       logger.warn(errorMsg);
 
-      return { success: await isMember(groupId.toString(), userId), errorMsg };
+      return {
+        success: !(await isMember(groupId.toString(), userId)),
+        errorMsg
+      };
     }
   } catch (err) {
     const errorMsg = err.response?.description;
