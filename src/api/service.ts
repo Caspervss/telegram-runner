@@ -1,6 +1,6 @@
 import { createHash, createHmac } from "crypto";
 import config from "../config";
-import { generateInvite, kickUser } from "../service/common";
+import { generateInvite /* , kickUser */ } from "../service/common";
 import { SuccessResult } from "../service/types";
 import logger from "../utils/logger";
 import { getGroupName, isMember } from "./actions";
@@ -28,7 +28,7 @@ const service = {
               errorMsg: null
             };
           }
-
+            
           return await kickUser(+platformGuildId, +platformUserId);
         } catch (error) {
           return {
