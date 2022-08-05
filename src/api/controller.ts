@@ -181,7 +181,7 @@ const controller = {
     }
 
     try {
-      const msgId = await sendPollMessage(req.body.platformId, req.body);
+      const msgId = await sendPollMessage(req.body.platformGuildId, req.body);
 
       res.status(200).json(msgId);
     } catch (err) {

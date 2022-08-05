@@ -1,4 +1,3 @@
-import axios from "axios";
 import { Context, NarrowedContext } from "telegraf";
 import { Update } from "telegraf/types";
 import dayjs from "dayjs";
@@ -10,7 +9,6 @@ import {
   sendNotAnAdministrator,
   kickUser
 } from "./common";
-import config from "../config";
 import logger from "../utils/logger";
 import { createPollText, initPoll } from "../utils/utils";
 import pollStorage from "./pollStorage";
@@ -193,33 +191,12 @@ const onUserJoined = async (
   platformGuildId: number
 ): Promise<void> => {
   try {
-    await axios.post(`${config.backendUrl}/user/joinedPlatform`, {
-      platformName: config.platform,
-      platformUserId,
-      platformGuildId
-    });
+    await Main.platform.user.join(
+      platformGuildId.toString(),
+      platformUserId.toString()
+    );
   } catch (err) {
     logger.error(err);
-  }
-};
-
-const onUserRemoved = async (
-  platformUserId: number,
-  groupId: string
-): Promise<void> => {
-  try {
-    const res = await axios.post(
-      `${config.backendUrl}/user/removeFromPlatform`,
-      {
-        platform: config.platform,
-        platformUserId,
-        groupId
-      }
-    );
-
-    logger.debug(JSON.stringify(res.data));
-  } catch (err) {
-    logger.error(err.message);
   }
 };
 
@@ -228,9 +205,9 @@ const leftChatMemberUpdate = async (
 ): Promise<void> => {
   const msg = ctx.update.message;
 
-  if (msg.left_chat_member.id) {
-    await onUserRemoved(msg.left_chat_member.id, msg.chat.id);
-  }
+  logger.verbose(
+    `user "${msg.left_chat_member.id}" left group "${msg.chat.id}"`
+  );
 };
 
 const chatMemberUpdate = async (
@@ -356,7 +333,6 @@ export {
   channelPostUpdate,
   onUserJoined,
   leftChatMemberUpdate,
-  onUserRemoved,
   chatMemberUpdate,
   myChatMemberUpdate,
   joinRequestUpdate
