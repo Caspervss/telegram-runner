@@ -1,20 +1,26 @@
 import { Context, NarrowedContext } from "telegraf";
 import { Message, Update } from "telegraf/types";
 
+type SuccessResult = { success: boolean; errorMsg: string };
+
 type NewPoll = {
   requirementId: number;
   platformId: string;
   question: string;
+  description: string;
   options: string[];
   expDate: string;
 };
 
 type Poll = {
   id: number;
+  requirementId: number;
+  platformId: string;
   question: string;
+  description: string;
+  options: string[];
   startDate: number;
   expDate: number;
-  options: string[];
 };
 
 type Ctx = NarrowedContext<
@@ -25,4 +31,4 @@ type Ctx = NarrowedContext<
   }
 > & { startPayload?: string };
 
-export { NewPoll, Poll, Ctx };
+export { SuccessResult, NewPoll, Poll, Ctx };
