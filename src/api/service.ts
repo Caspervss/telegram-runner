@@ -28,7 +28,7 @@ const service = {
               errorMsg: null
             };
           }
-            
+
           return await kickUser(+platformGuildId, +platformUserId);
         } catch (error) {
           return {
