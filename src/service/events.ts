@@ -293,6 +293,11 @@ const joinRequestUpdate = async (
   const platformGuildId = chatJoinRequest.chat.id;
   const platformUserId = chatJoinRequest.from.id;
 
+  logger.verbose({
+    message: "joinRequestUpdate",
+    meta: { platformGuildId, platformUserId }
+  });
+
   let access: GuildPlatformData;
 
   try {
@@ -300,23 +305,19 @@ const joinRequestUpdate = async (
       platformGuildId.toString(),
       platformUserId.toString()
     );
-  } catch (error) {
-    if (
-      error?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")
-    ) {
+  } catch (err) {
+    if (err?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")) {
       logger.error("No guild is associated with this group.");
     } else if (
-      error?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
+      err?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
     ) {
       await Main.platform.user.join(
         platformGuildId.toString(),
         platformUserId.toString()
       );
     } else {
-      logger.error(error);
+      logger.error(err.message);
     }
-
-    return;
   }
 
   if (!access || access.roles?.length === 0) {
