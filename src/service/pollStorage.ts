@@ -9,10 +9,10 @@ const setUserStep = (userId: number, step: number): void => {
 
 const getUserStep = (userId: number): number => userStep.get(userId.toString());
 
-const initPoll = (userId: number, platformId: string): void => {
+const initPoll = (userId: number, platformGuildId: string): void => {
   pollOfUser.set(userId.toString(), {
     requirementId: 0,
-    platformId,
+    platformGuildId,
     question: "",
     description: "",
     options: [],

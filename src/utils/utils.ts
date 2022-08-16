@@ -165,7 +165,7 @@ const initPoll = async (ctx: any): Promise<void> => {
     const chatMember = await Bot.client.getChatMember(chatId, userId);
 
     const guildIdRes = await axios.get(
-      `${config.backendUrl}/guild/platformId/${chatId}`
+      `${config.backendUrl}/guild/platform/${config.platform}/${chatId}`
     );
 
     const guildId = guildIdRes?.data?.id;
@@ -177,7 +177,7 @@ const initPoll = async (ctx: any): Promise<void> => {
     }
 
     const isAdminRes = await axios.get(
-      `${config.backendUrl}/guild/isAdmin/${chatId}/${userId}`
+      `${config.backendUrl}/guild/isAdmin/${config.platform}/${chatId}/${userId}`
     );
 
     if (isAdminRes?.data) {
@@ -230,7 +230,7 @@ const createPollText = async (
   const {
     id,
     requirementId,
-    platformId,
+    platformGuildId,
     question,
     description,
     options,
@@ -263,7 +263,7 @@ const createPollText = async (
         .format("YYYY-MM-DD HH:mm UTC")}`;
 
   const guildRes = await axios.get(
-    `${config.backendUrl}/guild/platformId/${platformId}`
+    `${config.backendUrl}/guild/platform/${config.platform}/${platformGuildId}`
   );
 
   const requirements = guildRes?.data?.roles[0]?.requirements.filter(

@@ -1,4 +1,3 @@
-// import dayjs from "dayjs";
 import dayjs from "dayjs";
 import { isMember } from "../api/actions";
 import Bot from "../Bot";
@@ -83,7 +82,8 @@ const sendMessageForSupergroup = async (groupId: number) => {
   await Bot.client.sendPhoto(groupId, config.assets.groupIdImage);
   await Bot.client.sendMessage(
     groupId,
-    "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild",
+    "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild.\n" +
+      "If the visibility of your group is already set to private, you have nothing to do.",
     { parse_mode: "Markdown" }
   );
 };

@@ -211,14 +211,14 @@ const resetCommand = async (ctx: Ctx): Promise<void> => {
 
   try {
     if (pollStorage.getUserStep(userId) > 0) {
-      const { platformId } = pollStorage.getPoll(userId);
+      const { platformGuildId } = pollStorage.getPoll(userId);
 
       pollStorage.deleteMemory(userId);
-      pollStorage.initPoll(userId, platformId);
+      pollStorage.initPoll(userId, platformGuildId);
       pollStorage.setUserStep(userId, 1);
 
       const guildIdRes = await axios.get(
-        `${config.backendUrl}/guild/platformId/${platformId}`
+        `${config.backendUrl}/guild/platform/${config.platform}/${platformGuildId}`
       );
 
       if (!guildIdRes?.data) {

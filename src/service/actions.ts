@@ -84,7 +84,7 @@ const voteAction = async (ctx: any): Promise<void> => {
     );
 
     const newPollText = await createPollText(
-      { platformId: chatId, ...poll },
+      { platformGuildId: chatId, ...poll },
       results
     );
 

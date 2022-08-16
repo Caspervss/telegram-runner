@@ -5,7 +5,7 @@ type SuccessResult = { success: boolean; errorMsg: string };
 
 type NewPoll = {
   requirementId: number;
-  platformId: string;
+  platformGuildId: string;
   question: string;
   description: string;
   options: string[];
@@ -15,7 +15,7 @@ type NewPoll = {
 type Poll = {
   id: number;
   requirementId: number;
-  platformId: string;
+  platformGuildId: string;
   question: string;
   description: string;
   options: string[];
