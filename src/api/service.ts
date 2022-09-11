@@ -51,7 +51,7 @@ const service = {
 
     const result = {
       platformGuildId,
-      platformGuildData: { inviteChannel: null }
+      platformGuildData: {}
     };
 
     logger.verbose({ message: "guild result", meta: result });
@@ -65,7 +65,7 @@ const service = {
     const { platformRoleId } = params;
 
     const result = {
-      platformGuildData: { inviteChannel: null },
+      platformGuildData: {},
       platformRoleId
     };
 

@@ -32,7 +32,6 @@ type AccessEventParams = {
   platformUserId: string;
   platformGuildId: string;
   guildName: string;
-  platformGuildData: { inviteChannel: string };
   roles: PlatformRoleResponse[];
 };
 
@@ -40,13 +39,11 @@ type GuildEventParams = {
   action: "CREATE" | "UPDATE" | "DELETE";
   guildName: string;
   platformGuildId: string;
-  platformGuildData?: { inviteChannel?: string };
 };
 
 type GuildEventResponse =
   | {
       platformGuildId: string;
-      platformGuildData: { inviteChannel: string };
     }
   | { success: boolean };
 
@@ -54,7 +51,6 @@ type RoleEventParams = {
   action: "CREATE" | "UPDATE" | "DELETE";
   roleName: string;
   platformGuildId: string;
-  platformGuildData: { inviteChannel: string };
   platformRoleId?: string;
   platformRoleData?: {
     isGuarded?: boolean;
@@ -65,7 +61,6 @@ type RoleEventParams = {
 
 type RoleEventResponse =
   | {
-      platformGuildData: { inviteChannel: string };
       platformRoleId: string;
     }
   | { success: boolean };
