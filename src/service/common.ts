@@ -44,7 +44,7 @@ const kickUser = async (
     const groupName = await getGroupName(groupId);
 
     try {
-      if (await isMember(groupId.toString(), +userId)) {
+      if (!(await isMember(groupId.toString(), +userId))) {
         await Bot.client.sendMessage(
           userId,
           "You have been kicked from the group " +
