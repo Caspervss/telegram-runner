@@ -19,7 +19,7 @@ const controller = {
       const result = await service.access(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.verbose(err);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -36,7 +36,7 @@ const controller = {
       const result = await service.guild(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.verbose(err);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -53,6 +53,7 @@ const controller = {
       const result = await service.role(req.body);
       res.status(200).json(result);
     } catch (err) {
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -69,7 +70,7 @@ const controller = {
       const result = await service.info(req.params.platformGuildId);
       res.status(200).json(result);
     } catch (err) {
-      logger.verbose(err);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -86,7 +87,7 @@ const controller = {
       const result = await service.resolveUser(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.verbose(err);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -115,7 +116,7 @@ const controller = {
 
       res.status(200).json(isTelegramMember);
     } catch (err) {
-      logger.error(err);
+      logger.error(err.message);
     }
   },
 
@@ -133,6 +134,7 @@ const controller = {
       const result = await isIn(+groupId);
       res.status(200).json(result);
     } catch (err) {
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -151,6 +153,7 @@ const controller = {
       const result = await getGroupName(+groupId);
       res.status(200).json(result);
     } catch (err) {
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -168,6 +171,7 @@ const controller = {
       const result = await getUser(+platformUserId);
       res.status(200).json(result);
     } catch (err) {
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -185,6 +189,7 @@ const controller = {
 
       res.status(200).json(msgId);
     } catch (err) {
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   }

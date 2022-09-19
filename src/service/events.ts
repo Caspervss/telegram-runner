@@ -18,14 +18,14 @@ import Main from "../Main";
 const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
 ): Promise<void> => {
-  const msg = ctx.update.message as {
-    chat: { id: number; type: string };
-    from: { id: number };
-    text: string;
-  };
+  try {
+    const msg = ctx.update.message as {
+      chat: { id: number; type: string };
+      from: { id: number };
+      text: string;
+    };
 
-  if (msg.chat.type === "private") {
-    try {
+    if (msg.chat.type === "private") {
       const userId = msg.from.id;
       const messageText = msg.text.trim();
 
@@ -135,54 +135,58 @@ const messageUpdate = async (
         "I'm sorry, but I couldn't interpret your request.\n" +
           "You can find more information on [docs.guild.xyz](https://docs.guild.xyz/)."
       );
-    } catch (err) {
-      logger.error(err);
     }
+  } catch (err) {
+    logger.error(err.message);
   }
 };
 
 const channelPostUpdate = async (
   ctx: NarrowedContext<Context, Update.ChannelPostUpdate>
 ): Promise<void> => {
-  const post = ctx.update.channel_post as {
-    message_id: number;
-    chat: { id: number };
-    text: string;
-  };
+  try {
+    const post = ctx.update.channel_post as {
+      message_id: number;
+      chat: { id: number };
+      text: string;
+    };
 
-  const channelId = post.chat.id;
+    const channelId = post.chat.id;
 
-  switch (post.text) {
-    case "/poll": {
-      await initPoll(ctx);
-      await Bot.client.deleteMessage(channelId, post.message_id);
+    switch (post.text) {
+      case "/poll": {
+        await initPoll(ctx);
+        await Bot.client.deleteMessage(channelId, post.message_id);
 
-      break;
-    }
+        break;
+      }
 
-    case "/groupid": {
-      ctx.reply(
-        "You can only use this command in a group.\n" +
-          "Please use the /channelid command for groups",
-        {
+      case "/groupid": {
+        ctx.reply(
+          "You can only use this command in a group.\n" +
+            "Please use the /channelid command for groups",
+          {
+            reply_to_message_id: post.message_id
+          }
+        );
+
+        break;
+      }
+
+      case "/channelid": {
+        ctx.replyWithMarkdown(`\`${channelId}\``, {
           reply_to_message_id: post.message_id
-        }
-      );
+        });
 
-      break;
+        break;
+      }
+
+      default: {
+        break;
+      }
     }
-
-    case "/channelid": {
-      ctx.replyWithMarkdown(`\`${channelId}\``, {
-        reply_to_message_id: post.message_id
-      });
-
-      break;
-    }
-
-    default: {
-      break;
-    }
+  } catch (err) {
+    logger.error(err.message);
   }
 };
 
@@ -196,7 +200,7 @@ const onUserJoined = async (
       platformUserId.toString()
     );
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
@@ -213,15 +217,15 @@ const leftChatMemberUpdate = async (
 const chatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.ChatMemberUpdate>
 ) => {
-  const {
-    from: { id: userId },
-    chat: { id: groupId },
-    new_chat_member,
-    invite_link: invLink
-  } = ctx.update.chat_member;
+  try {
+    const {
+      from: { id: userId },
+      chat: { id: groupId },
+      new_chat_member,
+      invite_link: invLink
+    } = ctx.update.chat_member;
 
-  if (new_chat_member?.status === "member") {
-    try {
+    if (new_chat_member?.status === "member") {
       if (invLink) {
         const { invite_link } = invLink;
 
@@ -249,19 +253,19 @@ const chatMemberUpdate = async (
             "If this is not the case then the admins did not set up the guild properly."
         );
       }
-    } catch (err) {
-      logger.error(err);
     }
+  } catch (err) {
+    logger.error(err.message);
   }
 };
 
 const myChatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.MyChatMemberUpdate>
 ): Promise<void> => {
-  const { my_chat_member } = ctx.update;
-  const { chat, old_chat_member, new_chat_member } = my_chat_member;
-
   try {
+    const { my_chat_member } = ctx.update;
+    const { chat, old_chat_member, new_chat_member } = my_chat_member;
+
     if (old_chat_member?.status === "kicked") {
       // onBlocked(ctx);
       logger.warn(`User ${chat.id} has blocked the bot.`);
@@ -282,7 +286,7 @@ const myChatMemberUpdate = async (
       }
     }
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
@@ -316,7 +320,11 @@ const joinRequestUpdate = async (
         platformUserId.toString()
       );
     } else {
-      logger.error(err.message);
+      logger.error({
+        message: err.message,
+        groupId: platformGuildId,
+        userId: platformUserId
+      });
     }
   }
 

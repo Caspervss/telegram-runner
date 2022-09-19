@@ -21,19 +21,19 @@
   "dependencies": {
     "@guildxyz/sdk": "github:agoraxyz/guild-sdk#next",
     "axios": "^0.27.2",
-    "dayjs": "^1.11.4",
-    "dotenv": "^16.0.1",
+    "dayjs": "^1.11.5",
+    "dotenv": "^16.0.2",
     "express": "^4.18.1",
     "express-validator": "^6.14.2",
-    "telegraf": "^4.8.6",
-    "winston": "^3.8.1"
+    "telegraf": "^4.9.2",
+    "winston": "^3.8.2"
   },
   "devDependencies": {
-    "@types/express": "^4.17.13",
-    "@types/node": "^18.6.5",
-    "@typescript-eslint/eslint-plugin": "^5.33.0",
-    "@typescript-eslint/parser": "^5.33.0",
-    "eslint": "^8.21.0",
+    "@types/express": "^4.17.14",
+    "@types/node": "^18.7.18",
+    "@typescript-eslint/eslint-plugin": "^5.37.0",
+    "@typescript-eslint/parser": "^5.37.0",
+    "eslint": "^8.23.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-import": "^2.26.0",
@@ -44,7 +44,7 @@
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
     "tslib": "^2.4.0",
-    "typescript": "^4.7.4"
+    "typescript": "^4.8.3"
   },
   "repository": {
     "type": "git",

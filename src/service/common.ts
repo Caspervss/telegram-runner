@@ -6,9 +6,14 @@ import logger from "../utils/logger";
 import { SuccessResult } from "./types";
 
 const getGroupName = async (groupId: number): Promise<string> => {
-  const group = (await Bot.client.getChat(groupId)) as { title: string };
+  try {
+    const group = (await Bot.client.getChat(groupId)) as { title: string };
 
-  return group.title;
+    return group.title;
+  } catch (err) {
+    logger.error({ message: err.message, groupId });
+    return undefined;
+  }
 };
 
 const generateInvite = async (groupId: string): Promise<string | undefined> => {
@@ -19,7 +24,7 @@ const generateInvite = async (groupId: string): Promise<string | undefined> => {
       })
     ).invite_link;
   } catch (err) {
-    logger.error(err);
+    logger.error({ message: err.message, groupId });
     return undefined;
   }
 };
@@ -35,7 +40,7 @@ const kickUser = async (
   });
 
   try {
-    await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 30);
+    await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 40);
     const groupName = await getGroupName(groupId);
 
     try {
@@ -64,47 +69,59 @@ const kickUser = async (
   } catch (err) {
     const errorMsg = err.response?.description;
 
-    logger.error(errorMsg);
+    logger.error({ message: errorMsg, groupId, userId });
 
     return { success: false, errorMsg };
   }
 };
 
-const sendMessageForSupergroup = async (groupId: number) => {
-  const groupName = await getGroupName(groupId);
+const sendMessageForSupergroup = async (groupId: number): Promise<void> => {
+  try {
+    const groupName = await getGroupName(groupId);
 
-  await Bot.client.sendMessage(
-    groupId,
-    `This is the group ID of "${groupName}": \`${groupId}\` .\n` +
-      "Paste it to the Guild creation interface!",
-    { parse_mode: "Markdown" }
-  );
-  await Bot.client.sendPhoto(groupId, config.assets.groupIdImage);
-  await Bot.client.sendMessage(
-    groupId,
-    "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild.\n" +
-      "If the visibility of your group is already set to private, you have nothing to do.",
-    { parse_mode: "Markdown" }
-  );
+    await Bot.client.sendMessage(
+      groupId,
+      `This is the group ID of "${groupName}": \`${groupId}\` .\n` +
+        "Paste it to the Guild creation interface!",
+      { parse_mode: "Markdown" }
+    );
+    await Bot.client.sendPhoto(groupId, config.assets.groupIdImage);
+    await Bot.client.sendMessage(
+      groupId,
+      "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild.\n" +
+        "If the visibility of your group is already set to private, you have nothing to do.",
+      { parse_mode: "Markdown" }
+    );
+  } catch (err) {
+    logger.error({ message: err.message, groupId });
+  }
 };
 
-const sendNotASuperGroup = async (groupId: number) => {
-  await Bot.client.sendMessage(
-    groupId,
-    "This Group is currently not a Supergroup.\n" +
+const sendNotASuperGroup = async (groupId: number): Promise<void> => {
+  try {
+    await Bot.client.sendMessage(
+      groupId,
+      "This Group is currently not a Supergroup.\n" +
+        "Please make sure to enable *all of the admin rights* for the bot.",
+      { parse_mode: "Markdown" }
+    );
+    await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
+  } catch (err) {
+    logger.error({ message: err.message, groupId });
+  }
+};
+
+const sendNotAnAdministrator = async (groupId: number): Promise<void> => {
+  try {
+    await Bot.client.sendMessage(
+      groupId,
       "Please make sure to enable *all of the admin rights* for the bot.",
-    { parse_mode: "Markdown" }
-  );
-  await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
-};
-
-const sendNotAnAdministrator = async (groupId: number) => {
-  await Bot.client.sendMessage(
-    groupId,
-    "Please make sure to enable *all of the admin rights* for the bot.",
-    { parse_mode: "Markdown" }
-  );
-  await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
+      { parse_mode: "Markdown" }
+    );
+    await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
+  } catch (err) {
+    logger.error({ message: err.message, groupId });
+  }
 };
 
 export {

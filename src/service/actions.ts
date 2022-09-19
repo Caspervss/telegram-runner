@@ -34,25 +34,29 @@ const chooseRequirementAction = async (ctx: any): Promise<void> => {
         '"Do you think drinking milk is cool?"'
     );
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
 const pollDescriptionAction = async (ctx: any): Promise<void> => {
-  const {
-    from: { id: userId },
-    data
-  } = ctx.update.callback_query;
+  try {
+    const {
+      from: { id: userId },
+      data
+    } = ctx.update.callback_query;
 
-  if (data.split(";")[1] === "yes") {
-    pollStorage.setUserStep(userId, 2);
+    if (data.split(";")[1] === "yes") {
+      pollStorage.setUserStep(userId, 2);
 
-    await ctx.reply("Please give me the description of your poll.");
-  } else {
-    pollStorage.savePollDescription(userId, undefined);
-    pollStorage.setUserStep(userId, 3);
+      await ctx.reply("Please give me the description of your poll.");
+    } else {
+      pollStorage.savePollDescription(userId, undefined);
+      pollStorage.setUserStep(userId, 3);
 
-    await ctx.reply("Please give me the first option of your poll.");
+      await ctx.reply("Please give me the first option of your poll.");
+    }
+  } catch (err) {
+    logger.error(err.message);
   }
 };
 
@@ -116,7 +120,7 @@ const voteAction = async (ctx: any): Promise<void> => {
       logger.warn("Couldn't update message text");
     }
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 

@@ -72,7 +72,7 @@ const pingCommand = async (ctx: Ctx): Promise<void> => {
         ` API latency is ${new Date().getTime() - currTime}ms.`
     );
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
@@ -104,7 +104,7 @@ const statusUpdateCommand = async (ctx: Ctx): Promise<void> => {
     await ctx.reply(
       `Cannot update your status. (${err.message})\nJoined any guilds?`
     );
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
@@ -202,7 +202,7 @@ const doneCommand = async (ctx: Ctx): Promise<void> => {
       await Bot.client.sendMessage(userId, errorMessage);
     }
 
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
@@ -240,7 +240,7 @@ const resetCommand = async (ctx: Ctx): Promise<void> => {
       );
     }
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 
@@ -262,7 +262,7 @@ const cancelCommand = async (ctx: Ctx): Promise<void> => {
       );
     }
   } catch (err) {
-    logger.error(err);
+    logger.error(err.message);
   }
 };
 

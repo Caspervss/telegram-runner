@@ -4,6 +4,7 @@ import * as TGActions from "./service/actions";
 import * as TGCommands from "./service/commands";
 import * as TGEvents from "./service/events";
 import logger from "./utils/logger";
+import { getErrorResult } from "./utils/utils";
 
 export default class Bot {
   public static client: Telegram;
@@ -72,7 +73,7 @@ export default class Bot {
 
     // logging middleware for bot errors
     bot.catch((err) => {
-      logger.error(err);
+      logger.error(getErrorResult(err));
     });
 
     // enable graceful stop
