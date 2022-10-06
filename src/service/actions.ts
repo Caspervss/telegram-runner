@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import Bot from "../Bot";
 import config from "../config";
 import logger from "../utils/logger";
-import { createPollText } from "../utils/utils";
+import { createPollText, markdownEscape } from "../utils/utils";
 import pollStorage from "./pollStorage";
 
 const chooseRequirementAction = async (ctx: any): Promise<void> => {
@@ -108,9 +108,9 @@ const voteAction = async (ctx: any): Promise<void> => {
         chatId,
         msg.message_id,
         undefined,
-        newPollText,
+        markdownEscape(newPollText),
         {
-          parse_mode: "Markdown",
+          parse_mode: "MarkdownV2",
           reply_markup: {
             inline_keyboard: voteButtonRow
           }

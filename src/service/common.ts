@@ -3,6 +3,7 @@ import { isMember } from "../api/actions";
 import Bot from "../Bot";
 import config from "../config";
 import logger from "../utils/logger";
+import { markdownEscape } from "../utils/utils";
 import { SuccessResult } from "./types";
 
 const getGroupName = async (groupId: number): Promise<string> => {
@@ -83,16 +84,20 @@ const sendMessageForSupergroup = async (groupId: number): Promise<void> => {
 
     await Bot.client.sendMessage(
       groupId,
-      `This is the group ID of "${groupName}": \`${groupId}\` .\n` +
-        "Paste it to the Guild creation interface!",
-      { parse_mode: "Markdown" }
+      markdownEscape(
+        `This is the group ID of "${groupName}": \`${groupId}\` .\n` +
+          "Paste it to the Guild creation interface!"
+      ),
+      { parse_mode: "MarkdownV2" }
     );
     await Bot.client.sendPhoto(groupId, config.assets.groupIdImage);
     await Bot.client.sendMessage(
       groupId,
-      "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild.\n" +
-        "If the visibility of your group is already set to private, you have nothing to do.",
-      { parse_mode: "Markdown" }
+      markdownEscape(
+        "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild.\n" +
+          "If the visibility of your group is already set to private, you have nothing to do."
+      ),
+      { parse_mode: "MarkdownV2" }
     );
   } catch (err) {
     logger.error({ message: err.message, groupId });
@@ -103,9 +108,11 @@ const sendNotASuperGroup = async (groupId: number): Promise<void> => {
   try {
     await Bot.client.sendMessage(
       groupId,
-      "This Group is currently not a Supergroup.\n" +
-        "Please make sure to enable *all of the admin rights* for the bot.",
-      { parse_mode: "Markdown" }
+      markdownEscape(
+        "This Group is currently not a Supergroup.\n" +
+          "Please make sure to enable *all of the admin rights* for the bot."
+      ),
+      { parse_mode: "MarkdownV2" }
     );
     await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
   } catch (err) {
@@ -117,8 +124,10 @@ const sendNotAnAdministrator = async (groupId: number): Promise<void> => {
   try {
     await Bot.client.sendMessage(
       groupId,
-      "Please make sure to enable *all of the admin rights* for the bot.",
-      { parse_mode: "Markdown" }
+      markdownEscape(
+        "Please make sure to enable *all of the admin rights* for the bot."
+      ),
+      { parse_mode: "MarkdownV2" }
     );
     await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
   } catch (err) {

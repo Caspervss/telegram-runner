@@ -10,7 +10,7 @@ import {
   kickUser
 } from "./common";
 import logger from "../utils/logger";
-import { createPollText, initPoll } from "../utils/utils";
+import { createPollText, initPoll, markdownEscape } from "../utils/utils";
 import pollStorage from "./pollStorage";
 import { Poll } from "./types";
 import Main from "../Main";
@@ -115,7 +115,9 @@ const messageUpdate = async (
             ...pollStorage.getPoll(userId)
           } as unknown as Poll;
 
-          await ctx.replyWithMarkdownV2(await createPollText(poll));
+          await ctx.replyWithMarkdownV2(
+            markdownEscape(await createPollText(poll))
+          );
 
           await ctx.reply(
             "You can accept it by using /done,\n" +
@@ -132,8 +134,10 @@ const messageUpdate = async (
       }
 
       await ctx.replyWithMarkdownV2(
-        "I'm sorry, but I couldn't interpret your request.\n" +
-          "You can find more information on [docs.guild.xyz](https://docs.guild.xyz/)."
+        markdownEscape(
+          "I'm sorry, but I couldn't interpret your request.\n" +
+            "You can find more information on [docs.guild.xyz](https://docs.guild.xyz/)."
+        )
       );
     }
   } catch (err) {
@@ -174,7 +178,7 @@ const channelPostUpdate = async (
       }
 
       case "/channelid": {
-        ctx.replyWithMarkdownV2(`\`${channelId}\``, {
+        ctx.replyWithMarkdownV2(markdownEscape(`\`${channelId}\``), {
           reply_to_message_id: post.message_id
         });
 

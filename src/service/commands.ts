@@ -8,7 +8,8 @@ import {
   sendPollTokenChooser,
   extractBackendErrorMessage,
   pollBuildResponse,
-  initPoll
+  initPoll,
+  markdownEscape
 } from "../utils/utils";
 import pollStorage from "./pollStorage";
 import { Ctx } from "./types";
@@ -43,14 +44,19 @@ const helpCommand = (ctx: Ctx): void => {
     commandsList += "/groupid - shows the ID of the group";
   }
 
-  ctx.replyWithMarkdownV2(`${helpHeader}\n${commandsList}\n${helpFooter}`, {
-    disable_web_page_preview: true
-  });
+  ctx.replyWithMarkdownV2(
+    markdownEscape(`${helpHeader}\n${commandsList}\n${helpFooter}`),
+    {
+      disable_web_page_preview: true
+    }
+  );
 };
 
 const startCommand = async (ctx: Ctx): Promise<void> => {
   ctx.replyWithMarkdownV2(
-    "Visit the [Guild website](https://guild.xyz) to join guilds"
+    markdownEscape(
+      "Visit the [Guild website](https://guild.xyz) to join guilds"
+    )
   );
 };
 
@@ -68,8 +74,11 @@ const pingCommand = async (ctx: Ctx): Promise<void> => {
     );
 
     await ctx.replyWithMarkdownV2(
-      `Pong. @${sender.user.username} latency is ${currTime - messageTime}ms.` +
-        ` API latency is ${new Date().getTime() - currTime}ms.`
+      markdownEscape(
+        `Pong. @${sender.user.username} latency is ${
+          currTime - messageTime
+        }ms. API latency is ${new Date().getTime() - currTime}ms.`
+      )
     );
   } catch (err) {
     logger.error(err.message);
@@ -109,7 +118,7 @@ const statusUpdateCommand = async (ctx: Ctx): Promise<void> => {
 };
 
 const groupIdCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdownV2(`\`${ctx.update.message.chat.id}\``, {
+  ctx.replyWithMarkdownV2(markdownEscape(`\`${ctx.update.message.chat.id}\``), {
     reply_to_message_id: ctx.update.message.message_id
   });
 };

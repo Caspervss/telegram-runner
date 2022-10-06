@@ -10,8 +10,8 @@ import logger from "./logger";
 
 dayjs.extend(utc);
 
-const UnixTime = (date: Date): number =>
-  Math.floor((date as unknown as number) / 1000);
+const markdownEscape = (str: string): string =>
+  str.replace(/[.!-]/g, (c) => ({ ".": "\\.", "!": "\\!", "-": "\\-" }[c]));
 
 const getErrorResult = (error: any): ErrorResult => {
   let errorMsg: string;
@@ -208,7 +208,9 @@ const initPoll = async (ctx: any): Promise<void> => {
 
       if (!username) {
         await ctx.replyWithMarkdownV2(
-          `[${first_name}](tg://user?id=${userId}) please check your private messages!`
+          markdownEscape(
+            `[${first_name}](tg://user?id=${userId}) please check your private messages!`
+          )
         );
 
         return;
@@ -300,8 +302,8 @@ const sendPollMessage = async (
     ]);
 
   const msgId = (
-    await Bot.client.sendMessage(platformId, pollText, {
-      parse_mode: "Markdown",
+    await Bot.client.sendMessage(platformId, markdownEscape(pollText), {
+      parse_mode: "MarkdownV2",
       reply_markup: {
         inline_keyboard: voteButtonRow
       }
@@ -360,7 +362,7 @@ const pollBuildResponse = async (userId: number): Promise<boolean> => {
 };
 
 export {
-  UnixTime,
+  markdownEscape,
   getErrorResult,
   logAxiosResponse,
   extractBackendErrorMessage,
