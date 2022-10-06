@@ -29,7 +29,11 @@ const service = {
             };
           }
 
-          return await kickUser(+platformGuildId, +platformUserId);
+          return await kickUser(
+            +platformGuildId,
+            +platformUserId,
+            "have not fulfilled the requirements, disconnected your Discord account or just left it."
+          );
         } catch (error) {
           return {
             success: false,
