@@ -90,6 +90,8 @@ const isIn = async (groupId: number): Promise<IsInResult> => {
 };
 
 const getUser = async (platformUserId: number) => {
+  logger.verbose({ message: "getUser", meta: { platformUserId } });
+
   const chat = await Bot.client.getChat(platformUserId);
 
   if (chat?.photo?.small_file_id) {
