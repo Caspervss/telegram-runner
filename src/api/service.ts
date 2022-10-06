@@ -32,7 +32,7 @@ const service = {
           return await kickUser(
             +platformGuildId,
             +platformUserId,
-            "have not fulfilled the requirements, disconnected your Discord account or just left it."
+            "have not fulfilled the requirements, disconnected your Telegram account or just left it."
           );
         } catch (error) {
           return {
