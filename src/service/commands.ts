@@ -43,13 +43,13 @@ const helpCommand = (ctx: Ctx): void => {
     commandsList += "/groupid - shows the ID of the group";
   }
 
-  ctx.replyWithMarkdown(`${helpHeader}\n${commandsList}\n${helpFooter}`, {
+  ctx.replyWithMarkdownV2(`${helpHeader}\n${commandsList}\n${helpFooter}`, {
     disable_web_page_preview: true
   });
 };
 
 const startCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdown(
+  ctx.replyWithMarkdownV2(
     "Visit the [Guild website](https://guild.xyz) to join guilds"
   );
 };
@@ -67,7 +67,7 @@ const pingCommand = async (ctx: Ctx): Promise<void> => {
       platformUserId
     );
 
-    await ctx.replyWithMarkdown(
+    await ctx.replyWithMarkdownV2(
       `Pong. @${sender.user.username} latency is ${currTime - messageTime}ms.` +
         ` API latency is ${new Date().getTime() - currTime}ms.`
     );
@@ -109,13 +109,13 @@ const statusUpdateCommand = async (ctx: Ctx): Promise<void> => {
 };
 
 const groupIdCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdown(`\`${ctx.update.message.chat.id}\``, {
+  ctx.replyWithMarkdownV2(`\`${ctx.update.message.chat.id}\``, {
     reply_to_message_id: ctx.update.message.message_id
   });
 };
 
 const addCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdown(
+  ctx.replyWithMarkdownV2(
     "Click to add Guild bot to your group",
     Markup.inlineKeyboard([
       Markup.button.url(

@@ -40,11 +40,13 @@ const kickUser = async (
   });
 
   try {
-    await Bot.client.banChatMember(groupId, +userId, dayjs().unix() + 40);
+    const wasMember = await isMember(groupId.toString(), userId);
+    await Bot.client.banChatMember(groupId, userId, dayjs().unix() + 40);
+    const isNotMemberNow = !(await isMember(groupId.toString(), userId));
     const groupName = await getGroupName(groupId);
 
     try {
-      if (!(await isMember(groupId.toString(), +userId))) {
+      if (wasMember && isNotMemberNow) {
         await Bot.client.sendMessage(
           userId,
           "You have been kicked from the group " +
@@ -53,7 +55,7 @@ const kickUser = async (
       }
 
       return {
-        success: !(await isMember(groupId.toString(), userId)),
+        success: isNotMemberNow,
         errorMsg: null
       };
     } catch (_) {
@@ -62,7 +64,7 @@ const kickUser = async (
       logger.warn(errorMsg);
 
       return {
-        success: !(await isMember(groupId.toString(), userId)),
+        success: isNotMemberNow,
         errorMsg
       };
     }

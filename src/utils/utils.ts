@@ -207,7 +207,7 @@ const initPoll = async (ctx: any): Promise<void> => {
       const { username, first_name } = chatMember.user;
 
       if (!username) {
-        await ctx.replyWithMarkdown(
+        await ctx.replyWithMarkdownV2(
           `[${first_name}](tg://user?id=${userId}) please check your private messages!`
         );
 

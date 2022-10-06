@@ -115,7 +115,7 @@ const messageUpdate = async (
             ...pollStorage.getPoll(userId)
           } as unknown as Poll;
 
-          await ctx.replyWithMarkdown(await createPollText(poll));
+          await ctx.replyWithMarkdownV2(await createPollText(poll));
 
           await ctx.reply(
             "You can accept it by using /done,\n" +
@@ -131,7 +131,7 @@ const messageUpdate = async (
         }
       }
 
-      await ctx.replyWithMarkdown(
+      await ctx.replyWithMarkdownV2(
         "I'm sorry, but I couldn't interpret your request.\n" +
           "You can find more information on [docs.guild.xyz](https://docs.guild.xyz/)."
       );
@@ -174,7 +174,7 @@ const channelPostUpdate = async (
       }
 
       case "/channelid": {
-        ctx.replyWithMarkdown(`\`${channelId}\``, {
+        ctx.replyWithMarkdownV2(`\`${channelId}\``, {
           reply_to_message_id: post.message_id
         });
 
