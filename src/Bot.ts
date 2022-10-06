@@ -3,6 +3,7 @@ import { UserFromGetMe } from "telegraf/types";
 import * as TGActions from "./service/actions";
 import * as TGCommands from "./service/commands";
 import * as TGEvents from "./service/events";
+import { Ctx } from "./service/types";
 import logger from "./utils/logger";
 import { getErrorResult } from "./utils/utils";
 
@@ -35,11 +36,14 @@ export default class Bot {
     bot.command("groupid", TGCommands.groupIdCommand);
     bot.command("add", TGCommands.addCommand);
 
-    bot.command("poll", TGCommands.pollCommand);
-    bot.command("enough", TGCommands.enoughCommand);
-    bot.command("done", TGCommands.doneCommand);
-    bot.command("reset", TGCommands.resetCommand);
-    bot.command("cancel", TGCommands.cancelCommand);
+    const noCommand = (ctx: Ctx) =>
+      ctx.reply("This feature is currently not available");
+
+    bot.command("poll", noCommand /* TGCommands.pollCommand */);
+    bot.command("enough", noCommand /* TGCommands.enoughCommand */);
+    bot.command("done", noCommand /* TGCommands.doneCommand */);
+    bot.command("reset", noCommand /* TGCommands.resetCommand */);
+    bot.command("cancel", noCommand /* TGCommands.cancelCommand */);
 
     // event listeners
     bot.on("text", TGEvents.messageUpdate);
