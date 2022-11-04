@@ -314,31 +314,41 @@ const joinRequestUpdate = async (
       platformUserId.toString()
     );
   } catch (err) {
-    if (err?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")) {
-      logger.error("No guild is associated with this group.");
-    } else if (
-      err?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
-    ) {
-      await Main.platform.user.join(
-        platformGuildId.toString(),
-        platformUserId.toString()
-      );
-    } else {
-      logger.error({
-        message: err.message,
-        groupId: platformGuildId,
-        userId: platformUserId
-      });
+    try {
+      if (
+        err?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")
+      ) {
+        logger.error("No guild is associated with this group.");
+      } else if (
+        err?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
+      ) {
+        await Main.platform.user.join(
+          platformGuildId.toString(),
+          platformUserId.toString()
+        );
+      } else {
+        logger.error({
+          message: err.message,
+          groupId: platformGuildId,
+          userId: platformUserId
+        });
+      }
+    } catch (error) {
+      logger.error(error);
     }
   }
 
-  if (!access || access.roles?.length === 0) {
-    await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
+  try {
+    if (!access || access.roles?.length === 0) {
+      await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
 
-    return;
+      return;
+    }
+
+    await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
+  } catch (error) {
+    logger.error(error);
   }
-
-  await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
 };
 
 export {

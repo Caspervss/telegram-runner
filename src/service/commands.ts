@@ -118,9 +118,9 @@ const statusUpdateCommand = async (ctx: Ctx): Promise<void> => {
 
     await ctx.reply(replyMsg);
   } catch (err) {
-    await ctx.reply(
-      `Cannot update your status. (${err.message})\nJoined any guilds?`
-    );
+    ctx
+      .reply(`Cannot update your status. (${err.message})\nJoined any guilds?`)
+      .catch(() => {});
     logger.error(err.message);
   }
 };
@@ -162,24 +162,28 @@ const enoughCommand = async (ctx: Ctx): Promise<void> => {
   const msg = ctx.message;
   const userId = msg.from.id;
 
-  if (msg.chat.type === "private") {
-    const poll = pollStorage.getPoll(userId);
+  try {
+    if (msg.chat.type === "private") {
+      const poll = pollStorage.getPoll(userId);
 
-    if (poll) {
-      if (pollStorage.getUserStep(userId) === 3 && poll.options.length >= 2) {
-        pollStorage.setUserStep(userId, 4);
+      if (poll) {
+        if (pollStorage.getUserStep(userId) === 3 && poll.options.length >= 2) {
+          pollStorage.setUserStep(userId, 4);
 
-        ctx.reply(
-          "Please give me the duration of the poll in the DD:HH:mm format (days:hours:minutes)"
-        );
+          await ctx.reply(
+            "Please give me the duration of the poll in the DD:HH:mm format (days:hours:minutes)"
+          );
+        } else {
+          await ctx.reply("You didn't finish the previous steps.");
+        }
       } else {
-        ctx.reply("You didn't finish the previous steps.");
+        await ctx.reply("You don't have an active poll creation process.");
       }
     } else {
-      ctx.reply("You don't have an active poll creation process.");
+      await ctx.reply("Please use this command in private");
     }
-  } else {
-    ctx.reply("Please use this command in private");
+  } catch (error) {
+    logger.error(`enoughCommand error - ${error.message}`);
   }
 };
 
@@ -219,15 +223,19 @@ const doneCommand = async (ctx: Ctx): Promise<void> => {
   } catch (err) {
     pollStorage.deleteMemory(userId);
 
-    await Bot.client.sendMessage(
-      userId,
-      "There was an error while creating the poll."
-    );
+    try {
+      await Bot.client.sendMessage(
+        userId,
+        "There was an error while creating the poll."
+      );
 
-    const errorMessage = extractBackendErrorMessage(err);
+      const errorMessage = extractBackendErrorMessage(err);
 
-    if (errorMessage === "Poll can't be created for this guild.") {
-      await Bot.client.sendMessage(userId, errorMessage);
+      if (errorMessage === "Poll can't be created for this guild.") {
+        await Bot.client.sendMessage(userId, errorMessage);
+      }
+    } catch (error) {
+      logger.error(error.message);
     }
 
     logger.error(err.message);
