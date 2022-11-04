@@ -178,7 +178,7 @@ const channelPostUpdate = async (
       }
 
       case "/channelid": {
-        ctx.replyWithMarkdownV2(markdownEscape(`\`${channelId}\``), {
+        await ctx.replyWithMarkdownV2(markdownEscape(`\`${channelId}\``), {
           reply_to_message_id: post.message_id
         });
 

@@ -15,41 +15,45 @@ import pollStorage from "./pollStorage";
 import { Ctx } from "./types";
 import Main from "../Main";
 
-const helpCommand = (ctx: Ctx): void => {
-  const helpHeader =
-    "Hello there! I'm the Guild bot.\n" +
-    "I'm part of the [Guild](https://docs.guild.xyz/) project and " +
-    "I am your personal assistant.\n" +
-    "I will always let you know whether you can join a guild or " +
-    "whether you were kicked from a guild.\n";
+const helpCommand = async (ctx: Ctx): Promise<void> => {
+  try {
+    const helpHeader =
+      "Hello there! I'm the Guild bot.\n" +
+      "I'm part of the [Guild](https://docs.guild.xyz/) project and " +
+      "I am your personal assistant.\n" +
+      "I will always let you know whether you can join a guild or " +
+      "whether you were kicked from a guild.\n";
 
-  let commandsList =
-    "/help - show instructions\n" +
-    "/ping - check if I'm alive\n" +
-    "/status - update your roles on every community\n";
+    let commandsList =
+      "/help - show instructions\n" +
+      "/ping - check if I'm alive\n" +
+      "/status - update your roles on every community\n";
 
-  const helpFooter =
-    "For more details about me read the documentation on " +
-    "[github](https://github.com/agoraxyz/telegram-runner).";
+    const helpFooter =
+      "For more details about me read the documentation on " +
+      "[github](https://github.com/agoraxyz/telegram-runner).";
 
-  // DM
-  if (ctx.message.chat.id >= 0) {
-    commandsList +=
-      "/list - get a list of your communities' websites\n" +
-      "/leave - you have to choose which community you want " +
-      "to leave and I'll do the rest\n";
-  }
-  // group chat
-  else {
-    commandsList += "/groupid - shows the ID of the group";
-  }
-
-  ctx.replyWithMarkdownV2(
-    markdownEscape(`${helpHeader}\n${commandsList}\n${helpFooter}`),
-    {
-      disable_web_page_preview: true
+    // DM
+    if (ctx.message.chat.id >= 0) {
+      commandsList +=
+        "/list - get a list of your communities' websites\n" +
+        "/leave - you have to choose which community you want " +
+        "to leave and I'll do the rest\n";
     }
-  );
+    // group chat
+    else {
+      commandsList += "/groupid - shows the ID of the group";
+    }
+
+    await ctx.replyWithMarkdownV2(
+      markdownEscape(`${helpHeader}\n${commandsList}\n${helpFooter}`),
+      {
+        disable_web_page_preview: true
+      }
+    );
+  } catch (error) {
+    logger.error(`helpCommand error - ${error.message}`);
+  }
 };
 
 const startCommand = async (ctx: Ctx): Promise<void> => {
@@ -122,21 +126,32 @@ const statusUpdateCommand = async (ctx: Ctx): Promise<void> => {
 };
 
 const groupIdCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdownV2(markdownEscape(`\`${ctx.update.message.chat.id}\``), {
-    reply_to_message_id: ctx.update.message.message_id
-  });
+  try {
+    await ctx.replyWithMarkdownV2(
+      markdownEscape(`\`${ctx.update.message.chat.id}\``),
+      {
+        reply_to_message_id: ctx.update.message.message_id
+      }
+    );
+  } catch (error) {
+    logger.error(`groupIdCommand error - ${error.message}`);
+  }
 };
 
 const addCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdownV2(
-    "Click to add Guild bot to your group",
-    Markup.inlineKeyboard([
-      Markup.button.url(
-        "Add Guild bot",
-        `https://t.me/${Bot.info.username}?startgroup=true`
-      )
-    ])
-  );
+  try {
+    await ctx.replyWithMarkdownV2(
+      "Click to add Guild bot to your group",
+      Markup.inlineKeyboard([
+        Markup.button.url(
+          "Add Guild bot",
+          `https://t.me/${Bot.info.username}?startgroup=true`
+        )
+      ])
+    );
+  } catch (error) {
+    logger.error(`addCommand error - ${error.message}`);
+  }
 };
 
 const pollCommand = async (ctx: Ctx): Promise<void> => {
