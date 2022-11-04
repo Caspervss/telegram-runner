@@ -54,7 +54,7 @@ const helpCommand = (ctx: Ctx): void => {
 
 const startCommand = async (ctx: Ctx): Promise<void> => {
   try {
-    ctx.replyWithMarkdownV2(
+    await ctx.replyWithMarkdownV2(
       markdownEscape(
         "Visit the [Guild website](https://guild.xyz) to join guilds"
       )
