@@ -53,11 +53,15 @@ const helpCommand = (ctx: Ctx): void => {
 };
 
 const startCommand = async (ctx: Ctx): Promise<void> => {
-  ctx.replyWithMarkdownV2(
-    markdownEscape(
-      "Visit the [Guild website](https://guild.xyz) to join guilds"
-    )
-  );
+  try {
+    ctx.replyWithMarkdownV2(
+      markdownEscape(
+        "Visit the [Guild website](https://guild.xyz) to join guilds"
+      )
+    );
+  } catch (error) {
+    logger.error(`startCommand error - ${error.message}`);
+  }
 };
 
 const pingCommand = async (ctx: Ctx): Promise<void> => {
