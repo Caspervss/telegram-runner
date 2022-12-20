@@ -12,6 +12,7 @@ const api = {
 };
 const adminVideo = process.env.ADMIN_VIDEO_URL;
 const groupIdImage = process.env.GROUPID_IMAGE;
+const nodeEnv = process.env.NODE_ENV || "development";
 
 if (!telegramToken) {
   throw new Error("You need to specify the bot's BOT_TOKEN in the .env file.");
@@ -29,5 +30,6 @@ export default {
   assets: {
     groupIdImage,
     adminVideo
-  }
+  },
+  nodeEnv
 };

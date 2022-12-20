@@ -12,7 +12,7 @@ const getGroupName = async (groupId: number): Promise<string> => {
 
     return group.title;
   } catch (err) {
-    logger.error({ message: err.message, groupId });
+    logger.error({ message: `getGroupName - ${err.message}`, groupId });
     return undefined;
   }
 };
@@ -25,7 +25,7 @@ const generateInvite = async (groupId: string): Promise<string | undefined> => {
       })
     ).invite_link;
   } catch (err) {
-    logger.error({ message: err.message, groupId });
+    logger.error({ message: `generateInvite - ${err.message}`, groupId });
     return undefined;
   }
 };
@@ -36,12 +36,23 @@ const kickUser = async (
   reason?: string
 ): Promise<SuccessResult> => {
   logger.verbose({
-    message: "kickUser",
+    message: "kickUser params",
     meta: { groupId, userId, reason }
   });
 
   try {
     const wasMember = await isMember(groupId.toString(), userId);
+    if (!wasMember) {
+      logger.verbose({
+        message: "kickUser - The user was not in the group!",
+        meta: { groupId, userId, reason }
+      });
+
+      return {
+        success: true,
+        errorMsg: `The user was not in the group!`
+      };
+    }
     await Bot.client.banChatMember(groupId, userId, dayjs().unix() + 40);
     const isNotMemberNow = !(await isMember(groupId.toString(), userId));
     const groupName = await getGroupName(groupId);
@@ -50,10 +61,16 @@ const kickUser = async (
       if (wasMember && isNotMemberNow) {
         await Bot.client.sendMessage(
           userId,
-          "You have been kicked from the group " +
-            `${groupName}${reason ? `, because you ${reason}` : ""}.`
+          `You have been kicked from the group ${groupName} ${
+            reason ? `, because you ${reason}` : ""
+          }.`
         );
       }
+
+      logger.verbose({
+        message: "kickUser - successfully kicked",
+        meta: { groupId, userId, reason }
+      });
 
       return {
         success: isNotMemberNow,
@@ -61,7 +78,6 @@ const kickUser = async (
       };
     } catch (_) {
       const errorMsg = `The bot can't initiate conversation with user "${userId}"`;
-
       logger.warn(errorMsg);
 
       return {
@@ -71,8 +87,7 @@ const kickUser = async (
     }
   } catch (err) {
     const errorMsg = err.response?.description;
-
-    logger.error({ message: errorMsg, groupId, userId });
+    logger.error({ message: `kickUser - ${errorMsg}`, groupId, userId });
 
     return { success: false, errorMsg };
   }
@@ -100,7 +115,10 @@ const sendMessageForSupergroup = async (groupId: number): Promise<void> => {
       { parse_mode: "MarkdownV2" }
     );
   } catch (err) {
-    logger.error({ message: err.message, groupId });
+    logger.error({
+      message: `sendMessageForSupergroup - ${err.message}`,
+      groupId
+    });
   }
 };
 
@@ -116,7 +134,7 @@ const sendNotASuperGroup = async (groupId: number): Promise<void> => {
     );
     await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
   } catch (err) {
-    logger.error({ message: err.message, groupId });
+    logger.error({ message: `sendNotASuperGroup - ${err.message}`, groupId });
   }
 };
 
@@ -131,7 +149,10 @@ const sendNotAnAdministrator = async (groupId: number): Promise<void> => {
     );
     await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
   } catch (err) {
-    logger.error({ message: err.message, groupId });
+    logger.error({
+      message: `sendNotAnAdministrator - ${err.message}`,
+      groupId
+    });
   }
 };
 

@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "crypto";
+import Bot from "../Bot";
 import config from "../config";
 import { generateInvite, kickUser } from "../service/common";
 import { SuccessResult } from "../service/types";
@@ -23,6 +24,7 @@ const service = {
 
         try {
           if (action === "ADD") {
+            await Bot.client.unbanChatMember(platformGuildId, +platformUserId);
             return {
               success: await isMember(platformGuildId, +platformUserId),
               errorMsg: null

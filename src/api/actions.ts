@@ -9,16 +9,19 @@ const isMember = async (
   groupId: string,
   platformUserId: number
 ): Promise<boolean> => {
-  logger.verbose({ message: "isMember", meta: { groupId, platformUserId } });
-
   try {
     if (!platformUserId) {
       throw new Error(`PlatformUserId doesn't exists for ${platformUserId}.`);
     }
 
     const member = await Bot.client.getChatMember(groupId, +platformUserId);
+    const inGroup = member !== undefined && member.status === "member";
 
-    return member !== undefined && member.status === "member";
+    logger.verbose({
+      message: "isMember result - ",
+      meta: { groupId, platformUserId, inGroup }
+    });
+    return inGroup;
   } catch (_) {
     return false;
   }
@@ -52,7 +55,6 @@ const isIn = async (groupId: number): Promise<IsInResult> => {
         const fileInfo = await axios.get(
           `https://api.telegram.org/bot${config.telegramToken}/getFile?file_id=${chat.photo.small_file_id}`
         );
-
         if (!fileInfo.data.ok) {
           throw Error("cannot fetch file info");
         }
