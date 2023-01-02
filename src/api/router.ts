@@ -43,12 +43,7 @@ const createRouter = () => {
     controller.info
   );
 
-  router.post(
-    "/resolveUser",
-    body("*.platformUserData"),
-    validators.bodyIdValidator("platformUserId"),
-    controller.resolveUser
-  );
+  router.post("/resolveUser", controller.resolveUser);
 
   router.post(
     "/isMember",
