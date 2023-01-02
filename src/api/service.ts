@@ -1,6 +1,6 @@
 import { createHash, createHmac } from "crypto";
 import config from "../config";
-import { generateInvite, kickUser } from "../service/common";
+import { generateInvite /* kickUser */ } from "../service/common";
 import { SuccessResult } from "../service/types";
 import logger from "../utils/logger";
 import { getGroupName, isMember } from "./actions";
@@ -29,11 +29,15 @@ const service = {
             };
           }
 
-          return await kickUser(
+          return {
+            success: true,
+            errorMsg: null
+          };
+          /* return await kickUser(
             +platformGuildId,
             +platformUserId,
             "have not fulfilled the requirements, disconnected your Telegram account or just left it."
-          );
+          ); */
         } catch (error) {
           return {
             success: false,
