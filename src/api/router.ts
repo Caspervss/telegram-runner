@@ -19,23 +19,9 @@ const createRouter = () => {
     controller.access
   );
 
-  router.post(
-    "/guild",
-    body("action").isIn(["CREATE", "UPDATE", "DELETE"]),
-    body("platformGuildData").optional(),
-    validators.bodyIdValidator("platformGuildId"),
-    controller.guild
-  );
+  router.post("/guild", controller.guild);
 
-  router.post(
-    "/role",
-    body("action").isIn(["CREATE", "UPDATE", "DELETE"]),
-    body("platformGuildData").optional(),
-    body("platformRoleData").optional(),
-    validators.bodyIdValidator("platformGuildId"),
-    validators.bodyIdValidator("platformRoleId").optional(),
-    controller.role
-  );
+  router.post("/role", controller.role);
 
   router.get(
     "/info/:platformGuildId",
