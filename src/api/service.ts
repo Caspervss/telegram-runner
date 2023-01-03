@@ -1,12 +1,11 @@
 import { createHash, createHmac } from "crypto";
-import Bot from "../Bot";
 import config from "../config";
 import { generateInvite, kickUser } from "../service/common";
-import { SuccessResult } from "../service/types";
 import logger from "../utils/logger";
 import { getGroupName, isMember } from "./actions";
 import {
   AccessEventParams,
+  AccessResult,
   GuildEventParams,
   GuildEventResponse,
   OauthData,
@@ -15,27 +14,29 @@ import {
 } from "./types";
 
 const service = {
-  access: async (params: AccessEventParams[]): Promise<SuccessResult[]> => {
+  access: async (params: AccessEventParams[]): Promise<AccessResult[]> => {
     logger.verbose({ message: "access params", meta: params });
 
-    const result = await Promise.all(
+    const results = await Promise.all(
       params.map(async (item) => {
         const { action, platformUserId, platformGuildId } = item;
+        let result: AccessResult;
 
         try {
           if (action === "ADD") {
-            await Bot.client.unbanChatMember(platformGuildId, +platformUserId);
-            return {
+            result = {
               success: await isMember(platformGuildId, +platformUserId),
               errorMsg: null
             };
           }
-
-          return await kickUser(
-            +platformGuildId,
-            +platformUserId,
-            "have not fulfilled the requirements, disconnected your Telegram account or just left it."
-          );
+          if (action === "REMOVE") {
+            result = await kickUser(
+              +platformGuildId,
+              +platformUserId,
+              "have not fulfilled the requirements, disconnected your Telegram account or just left it."
+            );
+          }
+          return result;
         } catch (error) {
           return {
             success: false,
@@ -45,9 +46,9 @@ const service = {
       })
     );
 
-    logger.verbose({ message: "access result", meta: result });
+    logger.verbose({ message: "access result", meta: results });
 
-    return result;
+    return results;
   },
 
   guild: async (params: GuildEventParams): Promise<GuildEventResponse> => {

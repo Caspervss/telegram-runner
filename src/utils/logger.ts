@@ -5,7 +5,7 @@ const { printf, combine, colorize, timestamp, errors } = format;
 
 const createCustomLogger = () => {
   const devLogFormat = printf((log) => {
-    let msg = `${log.timestamp} ${log.level} : ${log.message}`;
+    let msg = `${log.timestamp} ${log.level}: ${log.message}`;
     if (log.stack) {
       msg += log.stack;
     }
@@ -22,7 +22,7 @@ const createCustomLogger = () => {
   });
 
   return createLogger({
-    level: "debug",
+    level: "verbose",
     format:
       config.nodeEnv === "production"
         ? combine(

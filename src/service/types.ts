@@ -1,8 +1,6 @@
 import { Context, NarrowedContext } from "telegraf";
 import { Message, Update } from "telegraf/types";
 
-type SuccessResult = { success: boolean; errorMsg: string };
-
 type Ctx = NarrowedContext<
   Context,
   {
@@ -11,4 +9,4 @@ type Ctx = NarrowedContext<
   }
 > & { startPayload?: string };
 
-export { SuccessResult, Ctx };
+export { Ctx };

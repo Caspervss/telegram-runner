@@ -1,10 +1,9 @@
-import dayjs from "dayjs";
 import { isMember } from "../api/actions";
+import { AccessResult } from "../api/types";
 import Bot from "../Bot";
 import config from "../config";
 import logger from "../utils/logger";
 import { markdownEscape } from "../utils/utils";
-import { SuccessResult } from "./types";
 
 const getGroupName = async (groupId: number): Promise<string> => {
   try {
@@ -34,7 +33,7 @@ const kickUser = async (
   groupId: number,
   userId: number,
   reason?: string
-): Promise<SuccessResult> => {
+): Promise<AccessResult> => {
   logger.verbose({
     message: "kickUser params",
     meta: { groupId, userId, reason }
@@ -53,7 +52,10 @@ const kickUser = async (
         errorMsg: `The user was not in the group!`
       };
     }
-    await Bot.client.banChatMember(groupId, userId, dayjs().unix() + 40);
+
+    // By default, this method guarantees that after the call the user is not a member of the chat, but will be able to join it.
+    // So if the user is a member of the chat they will also be removed from the chat. https://core.telegram.org/bots/api#unbanchatmember
+    await Bot.client.unbanChatMember(groupId, userId);
     const isNotMemberNow = !(await isMember(groupId.toString(), userId));
     const groupName = await getGroupName(groupId);
 
