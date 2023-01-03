@@ -179,7 +179,7 @@ const joinRequestUpdate = async (
 
   let access: GuildPlatformData;
 
-  /* try {
+  try {
     access = await Main.platform.guild.getUserAccess(
       platformGuildId.toString(),
       platformUserId.toString()
@@ -207,10 +207,10 @@ const joinRequestUpdate = async (
     } catch (error) {
       logger.error(`SDK access (joinRequestUpdate) - ${error}`);
     }
-  } */
+  }
 
   try {
-    /* if (!access || access.roles?.length === 0) {
+    if (!access || access.roles?.length === 0) {
       await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
 
       await Bot.client.sendMessage(
@@ -224,7 +224,7 @@ const joinRequestUpdate = async (
       });
 
       return;
-    } */
+    }
 
     await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
     logger.verbose({

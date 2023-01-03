@@ -63,7 +63,7 @@ const kickUser = async (
       if (wasMember && isNotMemberNow) {
         await Bot.client.sendMessage(
           userId,
-          `You have been kicked from the group ${groupName} ${
+          `You have been kicked from the group "${groupName}"${
             reason ? `, because you ${reason}` : ""
           }.`
         );

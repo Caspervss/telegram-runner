@@ -135,7 +135,7 @@ const controller = {
     try {
       const result = await isIn(+groupId);
       logger.verbose({
-        message: `isIn result - ${result}`,
+        message: `isIn result - ${JSON.stringify(result)}`,
         meta: groupId
       });
       res.status(200).json(result);
@@ -158,7 +158,7 @@ const controller = {
     try {
       const result = await getGroupName(+groupId);
       logger.verbose({
-        message: `getGroupNameById result - ${result}`,
+        message: `getGroupNameById result - ${JSON.stringify(result)}`,
         meta: groupId
       });
       res.status(200).json(result);
