@@ -33,41 +33,6 @@ export default class Bot {
       { command: "start", description: "Visit the official guild website" }
     ]);
 
-    // set default administrator rights for supergroups
-    Bot.client.setMyDefaultAdministratorRights({
-      rights: {
-        can_manage_chat: true,
-        can_invite_users: true,
-        can_restrict_members: true,
-        is_anonymous: false,
-        can_change_info: false,
-        can_pin_messages: false,
-        can_edit_messages: false,
-        can_post_messages: false,
-        can_promote_members: false,
-        can_delete_messages: false,
-        can_manage_video_chats: false
-      }
-    });
-
-    // set default administrator rights for channels
-    Bot.client.setMyDefaultAdministratorRights({
-      rights: {
-        can_manage_chat: true,
-        can_invite_users: true,
-        can_post_messages: true,
-        can_restrict_members: true,
-        is_anonymous: false,
-        can_change_info: false,
-        can_pin_messages: false,
-        can_edit_messages: false,
-        can_promote_members: false,
-        can_delete_messages: false,
-        can_manage_video_chats: false
-      },
-      forChannels: true
-    });
-
     // event listeners
     bot.on("text", TGEvents.messageUpdate);
     bot.on("channel_post", TGEvents.channelPostUpdate);
