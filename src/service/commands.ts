@@ -88,8 +88,12 @@ const addCommand = async (ctx: Ctx): Promise<void> => {
       "Click to add Guild bot to your group",
       Markup.inlineKeyboard([
         Markup.button.url(
-          "Add Guild bot",
-          `https://t.me/${Bot.info.username}?startgroup=true`
+          "Add Guild bot to group",
+          `https://t.me/${Bot.info.username}?startgroup=true&admin=post_messages+restrict_members+invite_users`
+        ),
+        Markup.button.url(
+          "Add Guild bot to channel",
+          `https://t.me/${Bot.info.username}?startchannel&admin=post_messages+restrict_members+invite_users`
         )
       ])
     );

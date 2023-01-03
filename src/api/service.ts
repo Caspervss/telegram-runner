@@ -33,7 +33,7 @@ const service = {
             result = await kickUser(
               +platformGuildId,
               +platformUserId,
-              "have not fulfilled the requirements, disconnected your Telegram account or just left it."
+              "have not fulfilled the requirements, disconnected your Telegram account or just left it"
             );
           }
           return result;

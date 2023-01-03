@@ -180,7 +180,7 @@ const controller = {
       const { platformUserId } = req.params;
       const result = await getUser(+platformUserId);
       logger.verbose({
-        message: `getUser result - ${JSON.stringify(result)}`,
+        message: `getUser result - ${JSON.stringify(result.username)}`,
         meta: platformUserId
       });
       res.status(200).json(result);
