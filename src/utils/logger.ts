@@ -22,20 +22,13 @@ const createCustomLogger = () => {
   });
 
   return createLogger({
-    level: "verbose",
-    format:
-      config.nodeEnv === "production"
-        ? combine(
-            timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-            errors({ stack: true }),
-            devLogFormat
-          )
-        : combine(
-            colorize(),
-            timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-            errors({ stack: true }),
-            devLogFormat
-          ),
+    level: "debug",
+    format: combine(
+      colorize(),
+      timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+      errors({ stack: true }),
+      devLogFormat
+    ),
     transports: [new transports.Console()]
   });
 };
