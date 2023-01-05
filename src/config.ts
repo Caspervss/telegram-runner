@@ -14,6 +14,8 @@ const adminVideo = process.env.ADMIN_VIDEO_URL;
 const groupIdImage = process.env.GROUPID_IMAGE;
 const nodeEnv = process.env.NODE_ENV || "development";
 
+const unbanAtAddAccess = process.env.UNBAN_AT_ADD_ACCESS || false;
+
 if (!telegramToken) {
   throw new Error("You need to specify the bot's BOT_TOKEN in the .env file.");
 }
@@ -31,5 +33,6 @@ export default {
     groupIdImage,
     adminVideo
   },
-  nodeEnv
+  nodeEnv,
+  unbanAtAddAccess
 };
