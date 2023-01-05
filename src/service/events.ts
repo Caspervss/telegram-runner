@@ -1,6 +1,5 @@
 import { Context, NarrowedContext } from "telegraf";
 import { Update } from "telegraf/types";
-import { GuildPlatformData } from "@guildxyz/sdk";
 import Bot from "../Bot";
 import {
   sendMessageForSupergroup,
@@ -11,6 +10,7 @@ import {
 import logger from "../utils/logger";
 import { markdownEscape } from "../utils/utils";
 import Main from "../Main";
+import { getGuildUrl, getUserAccess } from "../api/actions";
 
 const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
@@ -98,36 +98,19 @@ const chatMemberUpdate = async (
     const {
       from: { id: userId },
       chat: { id: groupId },
-      new_chat_member,
-      invite_link: invLink
+      new_chat_member
     } = ctx.update.chat_member;
 
     if (new_chat_member?.status === "member") {
-      if (invLink) {
-        const { invite_link } = invLink;
-        const bot = await Bot.client.getMe();
-
-        if (invLink.creator.id === bot.id) {
-          onUserJoined(userId, groupId);
-
-          logger.verbose({
-            message: "onChatMemberUpdate - successfully joined",
-            meta: {
-              groupId,
-              userId,
-              invite_link
-            }
-          });
-        } else {
-          kickUser(groupId, userId, "haven't joined through Guild interface");
-        }
+      const { access, reason } = await getUserAccess(
+        userId.toString(),
+        groupId.toString()
+      );
+      if (!access || access.roles?.length === 0) {
+        const kickMessage = reason ?? "You don't have access to this reward";
+        kickUser(groupId, new_chat_member.user.id, kickMessage);
       } else {
-        kickUser(
-          groupId,
-          new_chat_member.user.id,
-          "have joined the group without using an invite link.\n" +
-            "If this is not the case then the admins did not set up the guild properly."
-        );
+        onUserJoined(userId, groupId);
       }
     }
   } catch (err) {
@@ -177,45 +160,21 @@ const joinRequestUpdate = async (
     meta: { platformGuildId, platformUserId }
   });
 
-  let access: GuildPlatformData;
-
-  try {
-    access = await Main.platform.guild.getUserAccess(
-      platformGuildId.toString(),
-      platformUserId.toString()
-    );
-  } catch (err) {
-    try {
-      if (
-        err?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")
-      ) {
-        logger.error("No guild is associated with this group.");
-      } else if (
-        err?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
-      ) {
-        await Main.platform.user.join(
-          platformGuildId.toString(),
-          platformUserId.toString()
-        );
-      } else {
-        logger.error({
-          message: err.message,
-          groupId: platformGuildId,
-          userId: platformUserId
-        });
-      }
-    } catch (error) {
-      logger.error(`SDK access (joinRequestUpdate) - ${error}`);
-    }
-  }
+  const { access, reason } = await getUserAccess(
+    platformUserId.toString(),
+    platformGuildId.toString()
+  );
 
   try {
     if (!access || access.roles?.length === 0) {
       await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
 
+      const guildUrl = await getGuildUrl(platformGuildId.toString());
+
       await Bot.client.sendMessage(
         platformUserId,
-        "Your join request was declined because you do not have access to it."
+        reason ??
+          `Your join request was declined because you do not have access to it. To check the requirements, come here: ${guildUrl}`
       );
 
       logger.verbose({

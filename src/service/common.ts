@@ -20,7 +20,8 @@ const generateInvite = async (groupId: string): Promise<string | undefined> => {
   try {
     return (
       await Bot.client.createChatInviteLink(groupId, {
-        creates_join_request: true
+        creates_join_request: true,
+        expire_date: 0
       })
     ).invite_link;
   } catch (err) {
@@ -64,7 +65,7 @@ const kickUser = async (
         await Bot.client.sendMessage(
           userId,
           `You have been kicked from the group "${groupName}"${
-            reason ? `, because you ${reason}` : ""
+            reason ? `. Reason: ${reason}` : ""
           }.`
         );
       }

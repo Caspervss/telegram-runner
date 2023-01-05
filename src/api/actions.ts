@@ -1,9 +1,11 @@
 import axios from "axios";
+import { GuildPlatformData } from "@guildxyz/sdk";
 import { getGroupName } from "../service/common";
 import Bot from "../Bot";
 import { IsInResult } from "./types";
 import logger from "../utils/logger";
 import config from "../config";
+import Main from "../Main";
 
 const isMember = async (
   groupId: string,
@@ -121,4 +123,46 @@ const getUser = async (platformUserId: number) => {
   };
 };
 
-export { getGroupName, isMember, isIn, getUser };
+const getGuildUrl = async (platformGuildId: string) => {
+  const { urlName } = await Main.platform.guild.get(platformGuildId);
+  const inviteLink = `https://guild.xyz/${urlName}?utm_source=telegram&utm_medium=telegram-runner&utm_content=invite`;
+  return inviteLink;
+};
+
+const getUserAccess = async (
+  platformUserId: string,
+  platformGuildId: string
+): Promise<{ access: GuildPlatformData; reason?: string }> => {
+  let access: GuildPlatformData;
+  try {
+    access = await Main.platform.guild.getUserAccess(
+      platformGuildId.toString(),
+      platformUserId.toString()
+    );
+  } catch (err) {
+    try {
+      const errorMsg = err?.response?.data?.errors?.[0].msg;
+
+      if (errorMsg.startsWith("Cannot find guild")) {
+        logger.error(`No guild is associated with "${platformGuildId}" group.`);
+      } else if (errorMsg.startsWith("Cannot find user")) {
+        const guildUrl = getGuildUrl(platformGuildId);
+        return {
+          access: null,
+          reason: `Your telegram account is not connected with Guild. If you would like to join, you can do it here: ${guildUrl}`
+        };
+      } else {
+        logger.error({
+          message: err.message,
+          groupId: platformGuildId,
+          userId: platformUserId
+        });
+      }
+    } catch (error) {
+      logger.error(`SDK access (joinRequestUpdate) - ${error}`);
+    }
+  }
+  return { access };
+};
+
+export { getGroupName, isMember, isIn, getUser, getUserAccess, getGuildUrl };
