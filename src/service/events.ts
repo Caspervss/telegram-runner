@@ -96,21 +96,20 @@ const chatMemberUpdate = async (
 ) => {
   try {
     const {
-      from: { id: userId },
       chat: { id: groupId },
-      new_chat_member
+      new_chat_member: newChatMember
     } = ctx.update.chat_member;
 
-    if (new_chat_member?.status === "member") {
+    if (newChatMember?.status === "member") {
       const { access, reason } = await getUserAccess(
-        userId.toString(),
+        newChatMember.user.id.toString(),
         groupId.toString()
       );
       if (!access || access.roles?.length === 0) {
         const kickMessage = reason ?? "You don't have access to this reward";
-        kickUser(groupId, new_chat_member.user.id, kickMessage);
+        kickUser(groupId, newChatMember.user.id, kickMessage);
       } else {
-        onUserJoined(userId, groupId);
+        onUserJoined(newChatMember.user.id, groupId);
       }
     }
   } catch (err) {
