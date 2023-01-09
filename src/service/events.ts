@@ -1,5 +1,5 @@
 import { Context, NarrowedContext } from "telegraf";
-import { Update } from "telegraf/types";
+import { Chat, Update } from "telegraf/types";
 import Bot from "../Bot";
 import {
   sendMessageForSupergroup,
@@ -10,7 +10,7 @@ import {
 import logger from "../utils/logger";
 import { markdownEscape } from "../utils/utils";
 import Main from "../Main";
-import { getGuildUrl, getUserAccess } from "../api/actions";
+import { getGuild, getUserAccess } from "../api/actions";
 
 const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
@@ -86,6 +86,10 @@ const onUserJoined = async (
       platformGuildId.toString(),
       platformUserId.toString()
     );
+    logger.verbose({
+      message: "onUserJoined - User successfully joined",
+      meta: { platformGuildId, platformUserId }
+    });
   } catch (err) {
     logger.error(`onUserJoined - ${err.message}`);
   }
@@ -95,21 +99,35 @@ const chatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.ChatMemberUpdate>
 ) => {
   try {
-    const {
-      chat: { id: groupId },
-      new_chat_member: newChatMember
-    } = ctx.update.chat_member;
+    const { chat, new_chat_member: newChatMember } = ctx.update.chat_member;
+
+    const groupId = chat.id;
+    const groupTitle = (chat as Chat.GroupChat).title;
+    const fromUsername =
+      ctx.update.chat_member.from.username ||
+      ctx.update.chat_member.from.first_name ||
+      ctx.update.chat_member.from.last_name ||
+      `somebody`;
 
     if (newChatMember?.status === "member") {
+      const guild = await getGuild(groupId.toString());
       const { access, reason } = await getUserAccess(
         newChatMember.user.id.toString(),
         groupId.toString()
       );
+
       if (!access || access.roles?.length === 0) {
-        const kickMessage = reason ?? "You don't have access to this reward";
-        kickUser(groupId, newChatMember.user.id, kickMessage);
+        const kickMessage =
+          reason ??
+          `You do not have access to this reward. To check the requirements, visit here: ${guild.inviteLink}`;
+        await kickUser(groupId, newChatMember.user.id, kickMessage);
       } else {
-        onUserJoined(newChatMember.user.id, groupId);
+        await onUserJoined(newChatMember.user.id, groupId);
+        await Bot.client.sendMessage(
+          newChatMember.user.id,
+          `You got invited to "${groupTitle}" chat from ${fromUsername}.
+            You've also joined the ${guild.name}, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
+        );
       }
     }
   } catch (err) {
@@ -168,12 +186,12 @@ const joinRequestUpdate = async (
     if (!access || access.roles?.length === 0) {
       await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
 
-      const guildUrl = await getGuildUrl(platformGuildId.toString());
+      const guild = await getGuild(platformGuildId.toString());
 
       await Bot.client.sendMessage(
         platformUserId,
         reason ??
-          `Your join request was declined because you do not have access to it. To check the requirements, come here: ${guildUrl}`
+          `Your join request was declined because you do not have access to this reward. To check the requirements, visit here: ${guild.inviteLink}`
       );
 
       logger.verbose({
