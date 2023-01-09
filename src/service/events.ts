@@ -125,8 +125,7 @@ const chatMemberUpdate = async (
         await onUserJoined(newChatMember.user.id, groupId);
         await Bot.client.sendMessage(
           newChatMember.user.id,
-          `You got invited to "${groupTitle}" chat from ${fromUsername}.
-            You've also joined the ${guild.name}, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
+          `You got invited to "${groupTitle}" chat by ${fromUsername}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
         );
       }
     }
