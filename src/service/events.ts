@@ -99,15 +99,21 @@ const chatMemberUpdate = async (
   ctx: NarrowedContext<Context, Update.ChatMemberUpdate>
 ) => {
   try {
-    const { chat, new_chat_member: newChatMember } = ctx.update.chat_member;
+    const {
+      chat,
+      new_chat_member: newChatMember,
+      from: invitator
+    } = ctx.update.chat_member;
 
     const groupId = chat.id;
     const groupTitle = (chat as Chat.GroupChat).title;
-    const fromUsername =
-      ctx.update.chat_member.from.username ||
-      ctx.update.chat_member.from.first_name ||
-      ctx.update.chat_member.from.last_name ||
-      `somebody`;
+    const invitatorName =
+      invitator.username || invitator.first_name || invitator.last_name;
+
+    const newChatMemberName =
+      newChatMember.user.username ||
+      newChatMember.user.first_name ||
+      newChatMember.user.last_name;
 
     if (newChatMember?.status === "member") {
       const guild = await getGuild(groupId.toString());
@@ -121,11 +127,15 @@ const chatMemberUpdate = async (
           reason ??
           `You do not have access to this reward. To check the requirements, visit here: ${guild.inviteLink}`;
         await kickUser(groupId, newChatMember.user.id, kickMessage);
+        await Bot.client.sendMessage(
+          invitator.id,
+          `You can not invite ${newChatMemberName}, because it does not have access to this reward.`
+        );
       } else {
         await onUserJoined(newChatMember.user.id, groupId);
         await Bot.client.sendMessage(
           newChatMember.user.id,
-          `You got invited to "${groupTitle}" chat by ${fromUsername}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
+          `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
         );
       }
     }
