@@ -131,12 +131,32 @@ const chatMemberUpdate = async (
           invitator.id,
           `You can not invite ${newChatMemberName} to "${groupTitle}", because it does not have access to this reward.`
         );
+        logger.verbose({
+          message: "Invited member got kicked",
+          meta: {
+            invitatorId: invitator.id,
+            invitatorName,
+            platformGuildId: groupId,
+            kickedUserId: newChatMember.user.id,
+            kickedUserName: newChatMemberName
+          }
+        });
       } else {
         await onUserJoined(newChatMember.user.id, groupId);
         await Bot.client.sendMessage(
           newChatMember.user.id,
           `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
         );
+        logger.verbose({
+          message: "Invited member go accepted and joined to the guild",
+          meta: {
+            invitatorId: invitator.id,
+            invitatorName,
+            platformGuildId: groupId,
+            newUserId: newChatMember.user.id,
+            newChatMemberName
+          }
+        });
       }
     }
   } catch (err) {
@@ -211,6 +231,7 @@ const joinRequestUpdate = async (
       return;
     }
 
+    await onUserJoined(platformUserId, platformGuildId);
     await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
     logger.verbose({
       message: "Join request approved",

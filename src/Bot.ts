@@ -16,13 +16,13 @@ export default class Bot {
     this.client = bot.telegram;
 
     // built-in commands
-    bot.start(TGCommands.startCommand);
     bot.help(TGCommands.helpCommand);
 
     // other commands
     bot.command("ping", TGCommands.pingCommand);
     bot.command("groupid", TGCommands.groupIdCommand);
     bot.command("add", TGCommands.addCommand);
+    bot.command("guild", TGCommands.guildCommand);
 
     Bot.client.setMyCommands([
       { command: "help", description: "Show instructions" },
@@ -30,7 +30,7 @@ export default class Bot {
       { command: "groupid", description: "Get the ID of the group" },
       { command: "channelid", description: "Get the ID of the channel" },
       { command: "add", description: "Click to add Guild bot to your group" },
-      { command: "start", description: "Visit the official guild website" }
+      { command: "guild", description: "Visit the official guild website" }
     ]);
 
     // event listeners
@@ -59,7 +59,7 @@ export default class Bot {
 
     // logging middleware for bot errors
     bot.catch((err) => {
-      logger.error(`bot catch error - ${getErrorResult(err)}`);
+      logger.error(`bot catch error - ${JSON.stringify(getErrorResult(err))}`);
     });
 
     // enable graceful stop

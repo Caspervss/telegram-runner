@@ -16,7 +16,7 @@ const helpCommand = async (ctx: Ctx): Promise<void> => {
     const commandsList =
       "/help - show instructions\n" +
       "/ping - check if I'm alive\n" +
-      "/start - visit the official guild website\n" +
+      "/guild - visit the official guild website\n" +
       "/channelid - shows the ID of the channel\n" +
       "/groupid - shows the ID of the group\n" +
       "/add - add Guild bot to your group";
@@ -36,7 +36,7 @@ const helpCommand = async (ctx: Ctx): Promise<void> => {
   }
 };
 
-const startCommand = async (ctx: Ctx): Promise<void> => {
+const guildCommand = async (ctx: Ctx): Promise<void> => {
   try {
     await ctx.replyWithMarkdownV2(
       markdownEscape(
@@ -44,7 +44,7 @@ const startCommand = async (ctx: Ctx): Promise<void> => {
       )
     );
   } catch (error) {
-    logger.error(`startCommand - ${error.message}`);
+    logger.error(`guildCommand - ${error.message}`);
   }
 };
 
@@ -88,12 +88,8 @@ const addCommand = async (ctx: Ctx): Promise<void> => {
       "Click to add Guild bot to your group",
       Markup.inlineKeyboard([
         Markup.button.url(
-          "Add Guild bot to group",
+          "Add to group",
           `https://t.me/${Bot.info.username}?startgroup=true&admin=post_messages+restrict_members+invite_users`
-        ),
-        Markup.button.url(
-          "Add Guild bot to channel",
-          `https://t.me/${Bot.info.username}?startchannel&admin=post_messages+restrict_members+invite_users`
         )
       ])
     );
@@ -102,4 +98,4 @@ const addCommand = async (ctx: Ctx): Promise<void> => {
   }
 };
 
-export { helpCommand, startCommand, pingCommand, groupIdCommand, addCommand };
+export { helpCommand, guildCommand, pingCommand, groupIdCommand, addCommand };
