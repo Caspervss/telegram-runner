@@ -33,11 +33,11 @@ const generateInvite = async (groupId: string): Promise<string | undefined> => {
 const kickUser = async (
   groupId: number,
   userId: number,
-  reason?: string
+  kickMessage?: string
 ): Promise<AccessResult> => {
   logger.verbose({
     message: "kickUser params",
-    meta: { groupId, userId, reason }
+    meta: { groupId, userId, kickMessage }
   });
 
   try {
@@ -45,7 +45,7 @@ const kickUser = async (
     if (!wasMember) {
       logger.verbose({
         message: "kickUser - The user was not in the group!",
-        meta: { groupId, userId, reason }
+        meta: { groupId, userId, kickMessage }
       });
 
       return {
@@ -64,15 +64,13 @@ const kickUser = async (
       if (wasMember && isNotMemberNow) {
         await Bot.client.sendMessage(
           userId,
-          `You have been kicked from the group "${groupName}"${
-            reason ? `. Reason: ${reason}` : ""
-          }.`
+          kickMessage ?? `You have been kicked from the group "${groupName}".`
         );
       }
 
       logger.verbose({
         message: "kickUser - successfully kicked",
-        meta: { groupId, userId, reason }
+        meta: { groupId, groupName, userId, kickMessage }
       });
 
       return {

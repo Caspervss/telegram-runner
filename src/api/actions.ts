@@ -125,8 +125,8 @@ const getUser = async (platformUserId: number) => {
 
 const getGuild = async (platformGuildId: string) => {
   const { urlName, name } = await Main.platform.guild.get(platformGuildId);
-  const inviteLink = `https://guild.xyz/${urlName}?utm_source=telegram&utm_medium=telegram-runner&utm_content=invite`;
-  return { inviteLink, name };
+  const url = `https://guild.xyz/${urlName}?utm_source=telegram`;
+  return { url, name };
 };
 
 const getUserAccess = async (
@@ -146,7 +146,7 @@ const getUserAccess = async (
       if (errorMsg.startsWith("Cannot find guild")) {
         logger.error(`No guild is associated with "${platformGuildId}" group.`);
       } else if (errorMsg.startsWith("Cannot find user")) {
-        const guildUrl = (await getGuild(platformGuildId)).inviteLink;
+        const guildUrl = (await getGuild(platformGuildId)).url;
         return {
           access: null,
           reason: `Your telegram account is not connected with Guild. If you would like to join, you can do it here: ${guildUrl}`

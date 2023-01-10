@@ -125,11 +125,11 @@ const chatMemberUpdate = async (
       if (!access || access.roles?.length === 0) {
         const kickMessage =
           reason ??
-          `You do not have access to this reward. To check the requirements, visit here: ${guild.inviteLink}`;
+          `You do not have access to this reward. To check the requirements, visit here: ${guild.url}`;
         await kickUser(groupId, newChatMember.user.id, kickMessage);
         await Bot.client.sendMessage(
           invitator.id,
-          `You can not invite ${newChatMemberName} to "${groupTitle}", because it does not have access to this reward.`
+          `You can not invite ${newChatMemberName} to "${groupTitle}" chat, because it does not have access to this reward.`
         );
         logger.verbose({
           message: "Invited member got kicked",
@@ -145,7 +145,7 @@ const chatMemberUpdate = async (
         await onUserJoined(newChatMember.user.id, groupId);
         await Bot.client.sendMessage(
           newChatMember.user.id,
-          `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.inviteLink}`
+          `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.url}`
         );
         logger.verbose({
           message: "Invited member go accepted and joined to the guild",
@@ -198,8 +198,8 @@ const joinRequestUpdate = async (
   ctx: NarrowedContext<Context, Update.ChatJoinRequestUpdate>
 ): Promise<void> => {
   const { chatJoinRequest } = ctx;
-  const platformGuildId = chatJoinRequest.chat.id;
-  const platformUserId = chatJoinRequest.from.id;
+  const platformGuildId = chatJoinRequest.chat.id.toString();
+  const platformUserId = chatJoinRequest.from.id.toString();
 
   logger.verbose({
     message: "joinRequestUpdate params",
@@ -207,20 +207,20 @@ const joinRequestUpdate = async (
   });
 
   const { access, reason } = await getUserAccess(
-    platformUserId.toString(),
-    platformGuildId.toString()
+    platformUserId,
+    platformGuildId
   );
 
   try {
     if (!access || access.roles?.length === 0) {
       await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
 
-      const guild = await getGuild(platformGuildId.toString());
+      const guild = await getGuild(platformGuildId);
 
       await Bot.client.sendMessage(
         platformUserId,
         reason ??
-          `Your join request was declined because you do not have access to this reward. To check the requirements, visit here: ${guild.inviteLink}`
+          `Your join request was declined because you do not have access to this reward. To check the requirements, visit here: ${guild.url}`
       );
 
       logger.verbose({
@@ -231,7 +231,7 @@ const joinRequestUpdate = async (
       return;
     }
 
-    await onUserJoined(platformUserId, platformGuildId);
+    await onUserJoined(+platformUserId, +platformGuildId);
     await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
     logger.verbose({
       message: "Join request approved",
