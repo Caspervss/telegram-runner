@@ -129,7 +129,7 @@ const chatMemberUpdate = async (
         await kickUser(groupId, newChatMember.user.id, kickMessage);
         await Bot.client.sendMessage(
           invitator.id,
-          `You can not invite ${newChatMemberName}, because it does not have access to this reward.`
+          `You can not invite ${newChatMemberName} to "${groupTitle}", because it does not have access to this reward.`
         );
       } else {
         await onUserJoined(newChatMember.user.id, groupId);
