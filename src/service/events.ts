@@ -102,7 +102,8 @@ const chatMemberUpdate = async (
     const {
       chat,
       new_chat_member: newChatMember,
-      from: invitator
+      from: invitator,
+      invite_link: invLink
     } = ctx.update.chat_member;
 
     const groupId = chat.id;
@@ -143,12 +144,14 @@ const chatMemberUpdate = async (
         });
       } else {
         await onUserJoined(newChatMember.user.id, groupId);
-        await Bot.client.sendMessage(
-          newChatMember.user.id,
-          `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.url}`
-        );
+        const bot = await Bot.client.getMe();
+        const message =
+          invLink.creator.id === bot.id
+            ? `Your request to join to the "${groupTitle}" chat has been accepted! If you want more info on possible rewards, visit here: ${guild.url}`
+            : `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.url}`;
+        await Bot.client.sendMessage(newChatMember.user.id, message);
         logger.verbose({
-          message: "Invited member go accepted and joined to the guild",
+          message: "Invited member got accepted and joined to the guild",
           meta: {
             invitatorId: invitator.id,
             invitatorName,

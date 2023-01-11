@@ -146,10 +146,12 @@ const getUserAccess = async (
       if (errorMsg.startsWith("Cannot find guild")) {
         logger.error(`No guild is associated with "${platformGuildId}" group.`);
       } else if (errorMsg.startsWith("Cannot find user")) {
-        const guildUrl = (await getGuild(platformGuildId)).url;
+        const guild = await getGuild(platformGuildId);
+        const groupName = await getGroupName(+platformGuildId);
+
         return {
           access: null,
-          reason: `Your telegram account is not connected with Guild. If you would like to join, you can do it here: ${guildUrl}`
+          reason: `You have been kicked from the "${groupName}" chat. Reason: Your telegram account is not connected with Guild. If you would like to join, you can do it here: ${guild.url}`
         };
       } else {
         logger.error({
