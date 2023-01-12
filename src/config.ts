@@ -14,6 +14,7 @@ const adminVideo = process.env.ADMIN_VIDEO_URL;
 const groupIdImage = process.env.GROUPID_IMAGE;
 const nodeEnv = process.env.NODE_ENV || "development";
 
+const botId = process.env.BOT_ID;
 const unbanAtAddAccess = process.env.UNBAN_AT_ADD_ACCESS || false;
 
 if (!telegramToken) {
@@ -34,5 +35,6 @@ export default {
     adminVideo
   },
   nodeEnv,
-  unbanAtAddAccess
+  unbanAtAddAccess,
+  botId
 };

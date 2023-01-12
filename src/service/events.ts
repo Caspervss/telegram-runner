@@ -11,6 +11,7 @@ import logger from "../utils/logger";
 import { markdownEscape } from "../utils/utils";
 import Main from "../Main";
 import { getGuild, getUserAccess } from "../api/actions";
+import config from "../config";
 
 const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
@@ -248,15 +249,31 @@ const joinRequestUpdate = async (
 const leftChatMemberUpdate = async (
   ctx: NarrowedContext<Context, any>
 ): Promise<void> => {
-  console.log(ctx.update);
+  let leaveAction: string;
   const msg = ctx.update.message;
 
   const from = msg?.from;
   const chat = msg?.chat;
   const leftChatMember = msg?.left_chat_member;
 
+  switch (from?.id) {
+    case leftChatMember?.id: {
+      leaveAction = "left the telegram group on its own";
+      break;
+    }
+
+    case config.botId: {
+      leaveAction = "kicked by our bot";
+      break;
+    }
+
+    default: {
+      leaveAction = "banned by this admin";
+    }
+  }
+
   logger.verbose(
-    `User "id: ${leftChatMember?.id} - username: ${leftChatMember?.username}" left the group / has been kicked by "id: ${from?.id} - username: ${from?.username}". Chat "id: ${chat?.id} - title: ${chat?.title} - type: ${chat?.type}`
+    `User "id: ${leftChatMember?.id} - username: ${leftChatMember?.username}" ${leaveAction} "id: ${from?.id} - username: ${from?.username}". Chat "id: ${chat?.id} - title: ${chat?.title} - type: ${chat?.type}`
   );
 };
 
