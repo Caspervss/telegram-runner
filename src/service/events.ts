@@ -146,7 +146,7 @@ const chatMemberUpdate = async (
         await onUserJoined(newChatMember.user.id, groupId);
         const bot = await Bot.client.getMe();
         const message =
-          invLink.creator.id === bot.id
+          invLink?.creator?.id === bot.id
             ? `Your request to join to the "${groupTitle}" chat has been accepted! If you want more info on possible rewards, visit here: ${guild.url}`
             : `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.url}`;
         await Bot.client.sendMessage(newChatMember.user.id, message);
@@ -245,11 +245,27 @@ const joinRequestUpdate = async (
   }
 };
 
+const leftChatMemberUpdate = async (
+  ctx: NarrowedContext<Context, any>
+): Promise<void> => {
+  console.log(ctx.update);
+  const msg = ctx.update.message;
+
+  const from = msg?.from;
+  const chat = msg?.chat;
+  const leftChatMember = msg?.left_chat_member;
+
+  logger.verbose(
+    `User "id: ${leftChatMember?.id} - username: ${leftChatMember?.username}" left the group / has been kicked by "id: ${from?.id} - username: ${from?.username}". Chat "id: ${chat?.id} - title: ${chat?.title} - type: ${chat?.type}`
+  );
+};
+
 export {
   messageUpdate,
   channelPostUpdate,
   onUserJoined,
   chatMemberUpdate,
   myChatMemberUpdate,
-  joinRequestUpdate
+  joinRequestUpdate,
+  leftChatMemberUpdate
 };

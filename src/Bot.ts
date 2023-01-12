@@ -39,6 +39,7 @@ export default class Bot {
     bot.on("chat_member", TGEvents.chatMemberUpdate);
     bot.on("my_chat_member", TGEvents.myChatMemberUpdate);
     bot.on("chat_join_request", TGEvents.joinRequestUpdate);
+    bot.on("left_chat_member", TGEvents.leftChatMemberUpdate);
 
     // starting the bot
     bot
