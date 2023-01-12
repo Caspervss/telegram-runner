@@ -1,4 +1,4 @@
-import { isMember } from "../api/actions";
+// import { isMember } from "../api/actions";
 import { AccessResult } from "../api/types";
 import Bot from "../Bot";
 import config from "../config";
@@ -40,7 +40,12 @@ const kickUser = async (
     meta: { groupId, userId, kickMessage }
   });
 
-  try {
+  return {
+    success: true,
+    errorMsg: null
+  };
+
+  /* try {
     const wasMember = await isMember(groupId.toString(), userId);
     if (!wasMember) {
       logger.verbose({
@@ -91,7 +96,7 @@ const kickUser = async (
     logger.error({ message: `kickUser - ${errorMsg}`, groupId, userId });
 
     return { success: false, errorMsg };
-  }
+  } */
 };
 
 const sendMessageForSupergroup = async (groupId: number): Promise<void> => {
