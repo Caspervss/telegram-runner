@@ -112,6 +112,7 @@ const sendMessageForSupergroup = async (
       ),
       { parse_mode: "MarkdownV2" }
     );
+    await Bot.client.sendAnimation(groupId, config.assets.adminGroupVideo);
     await Bot.client.sendPhoto(groupId, config.assets.chatIdImage);
     await Bot.client.sendMessage(
       groupId,
@@ -142,6 +143,7 @@ const sendMessageForChannel = async (
       ),
       { parse_mode: "MarkdownV2" }
     );
+    await Bot.client.sendAnimation(channelId, config.assets.adminChannelVideo);
     await Bot.client.sendPhoto(channelId, config.assets.chatIdImage);
     await Bot.client.sendMessage(
       channelId,
