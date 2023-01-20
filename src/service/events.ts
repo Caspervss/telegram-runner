@@ -2,10 +2,11 @@ import { Context, NarrowedContext } from "telegraf";
 import { Chat, Update } from "telegraf/types";
 import Bot from "../Bot";
 import {
-  sendMessageForSupergroup,
-  sendNotASuperGroup,
+  sendNotRightSettings,
   sendNotAnAdministrator,
-  kickUser
+  kickUser,
+  sendMessageForSupergroup,
+  sendMessageForChannel
 } from "./common";
 import logger from "../utils/logger";
 import { markdownEscape } from "../utils/utils";
@@ -129,10 +130,10 @@ const chatMemberUpdate = async (
           reason ??
           `You do not have access to this reward. To check the requirements, visit here: ${guild.url}`;
         await kickUser(groupId, newChatMember.user.id, kickMessage);
-        await Bot.client.sendMessage(
+        /* await Bot.client.sendMessage(
           invitator.id,
           `You can not invite ${newChatMemberName} to "${groupTitle}" chat, because it does not have access to this reward.`
-        );
+        ); */
         logger.verbose({
           message: "Invited member got kicked",
           meta: {
@@ -174,24 +175,26 @@ const myChatMemberUpdate = async (
   try {
     const { my_chat_member } = ctx.update;
     const { chat, old_chat_member, new_chat_member } = my_chat_member;
+    const chatTitle = (chat as Chat.GroupChat).title;
+    const chatId = chat.id;
 
     if (old_chat_member?.status === "kicked") {
-      logger.warn(`User ${chat.id} has blocked the bot.`);
+      logger.warn(
+        `Our bot has been blocked by this chat - ID: "${chatId}" | name: "${chatTitle}" | type: ${chat.type}`
+      );
     } else if (
-      new_chat_member?.status === "member" ||
-      new_chat_member?.status === "administrator"
+      new_chat_member?.status === "member" &&
+      (chat.type === "supergroup" || chat.type === "channel")
     ) {
-      const groupId = chat.id;
-
-      if (["supergroup", "channel"].includes(chat.type)) {
-        if (new_chat_member?.status === "administrator") {
-          await sendMessageForSupergroup(groupId);
-        } else {
-          await sendNotAnAdministrator(groupId);
-        }
-      } else {
-        await sendNotASuperGroup(groupId);
+      await sendNotAnAdministrator(chatId, chat.type);
+    } else if (new_chat_member?.status === "administrator") {
+      if (chat.type === "channel") {
+        await sendMessageForChannel(chatId, chatTitle);
+      } else if (chat.type === "supergroup") {
+        await sendMessageForSupergroup(chatId, chatTitle);
       }
+    } else {
+      await sendNotRightSettings(chatId, chat.type);
     }
   } catch (err) {
     logger.error(`myChatMemberUpdate - ${err.message}`);

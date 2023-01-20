@@ -10,8 +10,9 @@ const api = {
   prefix: "/api",
   port: process.env.PORT || 8991
 };
-const adminVideo = process.env.ADMIN_VIDEO_URL;
-const groupIdImage = process.env.GROUPID_IMAGE;
+const adminGroupVideo = process.env.ADMIN_GROUP_VIDEO_URL;
+const adminChannelVideo = process.env.ADMIN_CHANNEL_VIDEO_URL;
+const chatIdImage = process.env.CHAT_ID_IMAGE;
 const nodeEnv = process.env.NODE_ENV || "development";
 
 const botId = process.env.BOT_ID;
@@ -31,8 +32,9 @@ export default {
   api,
   platform: "TELEGRAM",
   assets: {
-    groupIdImage,
-    adminVideo
+    chatIdImage,
+    adminChannelVideo,
+    adminGroupVideo
   },
   nodeEnv,
   unbanAtAddAccess,

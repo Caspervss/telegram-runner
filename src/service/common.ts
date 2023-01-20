@@ -99,23 +99,24 @@ const kickUser = async (
   } */
 };
 
-const sendMessageForSupergroup = async (groupId: number): Promise<void> => {
+const sendMessageForSupergroup = async (
+  groupId: number,
+  chatTitle: string
+): Promise<void> => {
   try {
-    const groupName = await getGroupName(groupId);
-
     await Bot.client.sendMessage(
       groupId,
       markdownEscape(
-        `This is the group ID of "${groupName}": \`${groupId}\` .\n` +
+        `This is the group ID of "${chatTitle}": \`${groupId}\` .\n` +
           "Paste it to the Guild creation interface!"
       ),
       { parse_mode: "MarkdownV2" }
     );
-    await Bot.client.sendPhoto(groupId, config.assets.groupIdImage);
+    await Bot.client.sendPhoto(groupId, config.assets.chatIdImage);
     await Bot.client.sendMessage(
       groupId,
       markdownEscape(
-        "It is critically important to *set Group type to 'Private Group'* to create a functioning Guild.\n" +
+        "It is critically important to *set Group Type to 'Private'* to create a functioning Guild.\n" +
           "If the visibility of your group is already set to private, you have nothing to do."
       ),
       { parse_mode: "MarkdownV2" }
@@ -128,36 +129,80 @@ const sendMessageForSupergroup = async (groupId: number): Promise<void> => {
   }
 };
 
-const sendNotASuperGroup = async (groupId: number): Promise<void> => {
+const sendMessageForChannel = async (
+  channelId: number,
+  chatTitle: string
+): Promise<void> => {
   try {
     await Bot.client.sendMessage(
-      groupId,
+      channelId,
       markdownEscape(
-        "This Group is currently not a Supergroup.\n" +
+        `This is the channel ID of "${chatTitle}": \`${channelId}\` .\n` +
+          "Paste it to the Guild creation interface!"
+      ),
+      { parse_mode: "MarkdownV2" }
+    );
+    await Bot.client.sendPhoto(channelId, config.assets.chatIdImage);
+    await Bot.client.sendMessage(
+      channelId,
+      markdownEscape(
+        "It is critically important to *set Channel Type to 'Private'* to create a functioning Guild.\n" +
+          "If the visibility of your channel is already set to private, you have nothing to do."
+      ),
+      { parse_mode: "MarkdownV2" }
+    );
+  } catch (err) {
+    logger.error({
+      message: `sendMessageForChannel - ${err.message}`,
+      channelId
+    });
+  }
+};
+
+const sendNotRightSettings = async (
+  chatId: number,
+  chatType: string
+): Promise<void> => {
+  try {
+    await Bot.client.sendMessage(
+      chatId,
+      markdownEscape(
+        `This ${chatType} is currently does not have the right settings.\n` +
           "Please make sure to enable *all of the admin rights* for the bot."
       ),
       { parse_mode: "MarkdownV2" }
     );
-    await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
+    if (chatType === "channel") {
+      await Bot.client.sendAnimation(chatId, config.assets.adminChannelVideo);
+    } else {
+      await Bot.client.sendAnimation(chatId, config.assets.adminGroupVideo);
+    }
   } catch (err) {
-    logger.error({ message: `sendNotASuperGroup - ${err.message}`, groupId });
+    logger.error({ message: `sendNotRightSettings - ${err.message}`, chatId });
   }
 };
 
-const sendNotAnAdministrator = async (groupId: number): Promise<void> => {
+const sendNotAnAdministrator = async (
+  chatId: number,
+  chatType: string
+): Promise<void> => {
   try {
     await Bot.client.sendMessage(
-      groupId,
+      chatId,
       markdownEscape(
         "Please make sure to enable *all of the admin rights* for the bot."
       ),
       { parse_mode: "MarkdownV2" }
     );
-    await Bot.client.sendAnimation(groupId, config.assets.adminVideo);
+    if (chatType === "channel") {
+      await Bot.client.sendAnimation(chatId, config.assets.adminChannelVideo);
+    } else {
+      await Bot.client.sendAnimation(chatId, config.assets.adminGroupVideo);
+    }
   } catch (err) {
     logger.error({
       message: `sendNotAnAdministrator - ${err.message}`,
-      groupId
+      chatId
     });
   }
 };
@@ -166,7 +211,8 @@ export {
   getGroupName,
   generateInvite,
   kickUser,
-  sendNotASuperGroup,
+  sendNotRightSettings,
   sendMessageForSupergroup,
-  sendNotAnAdministrator
+  sendNotAnAdministrator,
+  sendMessageForChannel
 };
