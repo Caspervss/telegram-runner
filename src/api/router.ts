@@ -31,13 +31,6 @@ const createRouter = () => {
 
   router.post("/resolveUser", controller.resolveUser);
 
-  router.post(
-    "/isMember",
-    validators.bodyIdValidator("platformUserId"),
-    validators.bodyArrayValidator("groupIds"),
-    controller.isMember
-  );
-
   router.get(
     "/isIn/:groupId",
     validators.paramIdValidator("groupId"),

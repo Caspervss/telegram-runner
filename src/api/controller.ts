@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { validationResult } from "express-validator";
-import { getGroupName, getUser, isIn, isMember } from "./actions";
-import { IsMemberParam } from "./types";
+import { getGroupName, getUser, isIn } from "./actions";
 import { getErrorResult } from "../utils/utils";
 import logger from "../utils/logger";
 import { service } from "./service";
@@ -91,34 +90,6 @@ const controller = {
     } catch (err) {
       logger.error(`resolveUser - ${err.message}`);
       res.status(400).json(getErrorResult(err));
-    }
-  },
-
-  isMember: async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
-      return;
-    }
-
-    try {
-      const params: IsMemberParam = req.body;
-      let isTelegramMember = false;
-
-      await Promise.all(
-        params.groupIds.map(async (groupId) => {
-          const inGroup = await isMember(groupId, params.platformUserId);
-
-          if (inGroup) {
-            isTelegramMember = true;
-          }
-        })
-      );
-
-      res.status(200).json(isTelegramMember);
-    } catch (err) {
-      logger.error(`isMember - ${err.message}`);
     }
   },
 
