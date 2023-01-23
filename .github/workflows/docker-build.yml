@@ -32,12 +32,12 @@ jobs:
           install: true
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v2.3.0
+        uses: sigstore/cosign-installer@v2.8.1
         with:
-          cosign-release: "v1.8.0"
+          cosign-release: "v1.13.1"
 
       - name: Install Syft
-        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin "v0.65.0"
 
       - name: Get current repository name
         run: echo "REPOSITORY_NAME=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}' | sed -e "s/:refs//")" >> $GITHUB_ENV
@@ -122,9 +122,9 @@ jobs:
           KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
       
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v2.3.0
+        uses: sigstore/cosign-installer@v2.8.1
         with:
-          cosign-release: "v1.8.0"
+          cosign-release: "v1.13.1"
 
       - name: Install Grype
         run: |
