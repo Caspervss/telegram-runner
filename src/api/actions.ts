@@ -1,24 +1,29 @@
 import axios from "axios";
+import { GuildPlatformData } from "@guildxyz/sdk";
 import { getGroupName } from "../service/common";
 import Bot from "../Bot";
 import { IsInResult } from "./types";
 import logger from "../utils/logger";
 import config from "../config";
+import Main from "../Main";
 
 const isMember = async (
   groupId: string,
   platformUserId: number
 ): Promise<boolean> => {
-  logger.verbose({ message: "isMember", meta: { groupId, platformUserId } });
-
   try {
     if (!platformUserId) {
       throw new Error(`PlatformUserId doesn't exists for ${platformUserId}.`);
     }
 
     const member = await Bot.client.getChatMember(groupId, +platformUserId);
+    const inGroup = member !== undefined && member.status === "member";
 
-    return member !== undefined && member.status === "member";
+    logger.verbose({
+      message: "isMember result - ",
+      meta: { groupId, platformUserId, inGroup }
+    });
+    return inGroup;
   } catch (_) {
     return false;
   }
@@ -52,7 +57,6 @@ const isIn = async (groupId: number): Promise<IsInResult> => {
         const fileInfo = await axios.get(
           `https://api.telegram.org/bot${config.telegramToken}/getFile?file_id=${chat.photo.small_file_id}`
         );
-
         if (!fileInfo.data.ok) {
           throw Error("cannot fetch file info");
         }
@@ -119,4 +123,48 @@ const getUser = async (platformUserId: number) => {
   };
 };
 
-export { getGroupName, isMember, isIn, getUser };
+const getGuild = async (platformGuildId: string) => {
+  const { urlName, name } = await Main.platform.guild.get(platformGuildId);
+  const url = `https://guild.xyz/${urlName}?utm_source=telegram`;
+  return { url, name };
+};
+
+const getUserAccess = async (
+  platformUserId: string,
+  platformGuildId: string
+): Promise<{ access: GuildPlatformData; reason?: string }> => {
+  let access: GuildPlatformData;
+  try {
+    access = await Main.platform.guild.getUserAccess(
+      platformGuildId.toString(),
+      platformUserId.toString()
+    );
+  } catch (err) {
+    try {
+      const errorMsg = err?.response?.data?.errors?.[0].msg;
+
+      if (errorMsg.startsWith("Cannot find guild")) {
+        logger.error(`No guild is associated with "${platformGuildId}" group.`);
+      } else if (errorMsg.startsWith("Cannot find user")) {
+        const guild = await getGuild(platformGuildId);
+        const groupName = await getGroupName(+platformGuildId);
+
+        return {
+          access: null,
+          reason: `You have been kicked from the "${groupName}" chat. Reason: Your telegram account is not connected with Guild. If you would like to join, you can do it here: ${guild.url}`
+        };
+      } else {
+        logger.error({
+          message: err.message,
+          groupId: platformGuildId,
+          userId: platformUserId
+        });
+      }
+    } catch (error) {
+      logger.error(`SDK access (joinRequestUpdate) - ${error}`);
+    }
+  }
+  return { access };
+};
+
+export { getGroupName, isMember, isIn, getUser, getUserAccess, getGuild };
