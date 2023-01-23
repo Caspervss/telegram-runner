@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { validationResult } from "express-validator";
-import { getGroupName, getUser, isIn } from "./actions";
-import { getErrorResult } from "../utils/utils";
+import { getGroupName, getUser, isIn, isMember } from "./actions";
+import { IsMemberParam } from "./types";
+import { getErrorResult, sendPollMessage } from "../utils/utils";
 import logger from "../utils/logger";
 import { service } from "./service";
 
@@ -18,7 +19,7 @@ const controller = {
       const result = await service.access(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`access - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -35,7 +36,7 @@ const controller = {
       const result = await service.guild(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`guild - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -52,7 +53,7 @@ const controller = {
       const result = await service.role(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`role - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -66,12 +67,10 @@ const controller = {
     }
 
     try {
-      const { platformGuildId } = req.params;
-
-      const result = await service.info(platformGuildId);
+      const result = await service.info(req.params.platformGuildId);
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`info - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -88,8 +87,36 @@ const controller = {
       const result = await service.resolveUser(req.body);
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`resolveUser - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
+    }
+  },
+
+  isMember: async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    try {
+      const params: IsMemberParam = req.body;
+      let isTelegramMember = false;
+
+      await Promise.all(
+        params.groupIds.map(async (groupId) => {
+          const inGroup = await isMember(groupId, params.platformUserId);
+
+          if (inGroup) {
+            isTelegramMember = true;
+          }
+        })
+      );
+
+      res.status(200).json(isTelegramMember);
+    } catch (err) {
+      logger.error(err.message);
     }
   },
 
@@ -105,13 +132,9 @@ const controller = {
 
     try {
       const result = await isIn(+groupId);
-      logger.verbose({
-        message: `isIn result - ${JSON.stringify(result)}`,
-        meta: groupId
-      });
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`isIn - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -128,13 +151,9 @@ const controller = {
 
     try {
       const result = await getGroupName(+groupId);
-      logger.verbose({
-        message: `getGroupNameById result - ${JSON.stringify(result)}`,
-        meta: groupId
-      });
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`getGroupNameById - ${err.message}`);
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   },
@@ -150,13 +169,27 @@ const controller = {
     try {
       const { platformUserId } = req.params;
       const result = await getUser(+platformUserId);
-      logger.verbose({
-        message: `getUser result - ${JSON.stringify(result.username)}`,
-        meta: platformUserId
-      });
       res.status(200).json(result);
     } catch (err) {
-      logger.error(`getUser - ${err.message}`);
+      logger.error(err.message);
+      res.status(400).json(getErrorResult(err));
+    }
+  },
+
+  createPoll: async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    try {
+      const msgId = await sendPollMessage(req.body.platformGuildId, req.body);
+
+      res.status(200).json(msgId);
+    } catch (err) {
+      logger.error(err.message);
       res.status(400).json(getErrorResult(err));
     }
   }

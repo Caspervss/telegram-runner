@@ -75,11 +75,6 @@ type OauthData = {
   hash      : string;
 };
 
-type AccessResult = {
-  success: boolean;
-  errorMsg: any;
-};
-
 export {
   IsMemberParam,
   LevelInfo,
@@ -90,6 +85,5 @@ export {
   GuildEventResponse,
   RoleEventParams,
   RoleEventResponse,
-  OauthData,
-  AccessResult
+  OauthData
 };

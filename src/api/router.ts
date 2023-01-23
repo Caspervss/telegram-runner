@@ -1,53 +1,46 @@
 import { Router } from "express";
-import { body } from "express-validator";
 import { controller } from "./controller";
 import validators from "./validators";
 
 const createRouter = () => {
   const router: Router = Router();
 
-  router.post(
-    "/access",
-    body().isArray(),
-    body("*.action").isIn(["ADD", "REMOVE"]),
-    body("*.platformGuildData"),
-    validators.bodyIdValidator("*.platformUserId"),
-    validators.bodyIdValidator("*.platformGuildId"),
-    validators.bodyStringValidator("*.guildName"),
-    validators.bodyArrayValidator("*.roles"),
-    validators.bodyStringValidator("*.roles.*.roleName"),
-    controller.access
-  );
+  router.post("/access", controller.access);
 
   router.post("/guild", controller.guild);
 
   router.post("/role", controller.role);
 
-  router.get(
-    "/info/:platformGuildId",
-    validators.paramIdValidator("platformGuildId"),
-    controller.info
-  );
+  router.get("/info/:platformGuildId", controller.info);
 
   router.post("/resolveUser", controller.resolveUser);
 
-  router.get(
-    "/isIn/:groupId",
-    validators.paramIdValidator("groupId"),
-    controller.isIn
+  router.post(
+    "/isMember",
+    [validators.bodyPlatformUserId, validators.groupsValidator],
+    controller.isMember
   );
 
-  router.get(
-    "/:groupId",
-    validators.paramIdValidator("groupId"),
-    controller.getGroupNameById
-  );
+  router.get("/isIn/:groupId", validators.paramGroupId, controller.isIn);
 
-  // TODO make like /userinfo in other connectors
+  router.get("/:groupId", validators.paramGroupId, controller.getGroupNameById);
+
   router.get(
     "/user/:platformUserId",
-    validators.paramIdValidator("platformUserId"),
+    validators.paramPlatformUserId,
     controller.getUser
+  );
+
+  router.post(
+    "/poll",
+    [
+      validators.bodyNumberIdValidator("id"),
+      validators.bodyIdValidator("platformGuildId"),
+      validators.bodyStringValidator("question"),
+      validators.bodyIdValidator("expDate"),
+      validators.bodyArrayValidator("options")
+    ],
+    controller.createPoll
   );
 
   return router;

@@ -1,12 +1,11 @@
 import { createHash, createHmac } from "crypto";
-import Bot from "../Bot";
 import config from "../config";
-import { generateInvite, kickUser } from "../service/common";
+import { generateInvite /* kickUser */ } from "../service/common";
+import { SuccessResult } from "../service/types";
 import logger from "../utils/logger";
-import { getGroupName, getGuild, isMember } from "./actions";
+import { getGroupName, isMember } from "./actions";
 import {
   AccessEventParams,
-  AccessResult,
   GuildEventParams,
   GuildEventResponse,
   OauthData,
@@ -15,38 +14,30 @@ import {
 } from "./types";
 
 const service = {
-  access: async (params: AccessEventParams[]): Promise<AccessResult[]> => {
+  access: async (params: AccessEventParams[]): Promise<SuccessResult[]> => {
     logger.verbose({ message: "access params", meta: params });
 
-    const results = await Promise.all(
+    const result = await Promise.all(
       params.map(async (item) => {
         const { action, platformUserId, platformGuildId } = item;
-        let result: AccessResult;
 
         try {
           if (action === "ADD") {
-            if (config.unbanAtAddAccess) {
-              await Bot.client.unbanChatMember(
-                platformGuildId,
-                +platformUserId
-              );
-            }
-            result = {
+            return {
               success: await isMember(platformGuildId, +platformUserId),
               errorMsg: null
             };
           }
-          if (action === "REMOVE") {
-            const guild = await getGuild(platformGuildId);
-            const groupName = await getGroupName(+platformGuildId);
 
-            result = await kickUser(
-              +platformGuildId,
-              +platformUserId,
-              `You have been kicked from the group "${groupName}". Reason: Have not fulfilled the requirements, disconnected your Telegram account or just left the guild. If you want to check the guild, visit here: ${guild.url}`
-            );
-          }
-          return result;
+          return {
+            success: true,
+            errorMsg: null
+          };
+          /* return await kickUser(
+            +platformGuildId,
+            +platformUserId,
+            "have not fulfilled the requirements, disconnected your Telegram account or just left it."
+          ); */
         } catch (error) {
           return {
             success: false,
@@ -56,9 +47,9 @@ const service = {
       })
     );
 
-    logger.verbose({ message: "access result", meta: results });
+    logger.verbose({ message: "access result", meta: result });
 
-    return results;
+    return result;
   },
 
   guild: async (params: GuildEventParams): Promise<GuildEventResponse> => {
