@@ -1,19 +1,18 @@
 import { Context, NarrowedContext } from "telegraf";
-import { Update } from "telegraf/types";
-import dayjs from "dayjs";
-import { GuildPlatformData } from "@guildxyz/sdk";
+import { Chat, Update } from "telegraf/types";
 import Bot from "../Bot";
 import {
+  sendNotRightSettings,
+  sendNotAnAdministrator,
+  kickUser,
   sendMessageForSupergroup,
-  sendNotASuperGroup,
-  sendNotAnAdministrator
-  // kickUser
+  sendMessageForChannel
 } from "./common";
 import logger from "../utils/logger";
-import { createPollText, initPoll, markdownEscape } from "../utils/utils";
-import pollStorage from "./pollStorage";
-import { Poll } from "./types";
+import { getChanges, markdownEscape } from "../utils/utils";
 import Main from "../Main";
+import { getGuild, getUserAccess } from "../api/actions";
+import config from "../config";
 
 const messageUpdate = async (
   ctx: NarrowedContext<Context, Update.MessageUpdate>
@@ -26,113 +25,6 @@ const messageUpdate = async (
     };
 
     if (msg.chat.type === "private") {
-      const userId = msg.from.id;
-      const messageText = msg.text.trim();
-
-      switch (pollStorage.getUserStep(userId)) {
-        case 1: {
-          pollStorage.savePollQuestion(userId, messageText);
-
-          const buttons = [
-            [
-              {
-                text: "Yes",
-                callback_data: "desc;yes"
-              },
-              {
-                text: "No",
-                callback_data: "desc;no"
-              }
-            ]
-          ];
-
-          await ctx.reply("Do you want to add a description for the poll?", {
-            reply_markup: {
-              inline_keyboard: buttons
-            }
-          });
-
-          return;
-        }
-
-        case 2: {
-          pollStorage.savePollDescription(userId, messageText);
-          pollStorage.setUserStep(userId, 3);
-
-          await ctx.reply("Please give me the first option of your poll.");
-
-          return;
-        }
-
-        case 3: {
-          const optionSaved = pollStorage.savePollOption(userId, messageText);
-
-          if (!optionSaved) {
-            await ctx.reply("This option has already been added.");
-
-            return;
-          }
-
-          if (pollStorage.getPoll(userId).options.length === 1) {
-            await ctx.reply("Please give me the second option of your poll.");
-          } else {
-            await ctx.reply(
-              "Please give me a new option or go to the next step by using /enough"
-            );
-          }
-
-          return;
-        }
-
-        case 4: {
-          const dateRegex =
-            /([1-9][0-9]*|[0-9]):([0-1][0-9]|[0-9]|[2][0-4]):([0-5][0-9]|[0-9])/;
-          const found = messageText.match(dateRegex);
-
-          if (!found) {
-            await ctx.reply(
-              "The message you sent me is not in the DD:HH:mm format.\n" +
-                "Please verify the contents of your message and send again."
-            );
-
-            return;
-          }
-
-          const [day, hour, minute] = found[0].split(":");
-
-          const expDate = dayjs()
-            .add(parseInt(day, 10), "day")
-            .add(parseInt(hour, 10), "hour")
-            .add(parseInt(minute, 10), "minute")
-            .unix()
-            .toString();
-
-          pollStorage.savePollExpDate(userId, expDate);
-          pollStorage.setUserStep(userId, 4);
-
-          const poll = {
-            id: 69,
-            ...pollStorage.getPoll(userId)
-          } as unknown as Poll;
-
-          await ctx.replyWithMarkdownV2(
-            markdownEscape(await createPollText(poll))
-          );
-
-          await ctx.reply(
-            "You can accept it by using /done,\n" +
-              "reset the data by using /reset\n" +
-              "or cancel it using /cancel."
-          );
-
-          return;
-        }
-
-        default: {
-          break;
-        }
-      }
-
       await ctx.replyWithMarkdownV2(
         markdownEscape(
           "I'm sorry, but I couldn't interpret your request.\n" +
@@ -141,7 +33,7 @@ const messageUpdate = async (
       );
     }
   } catch (err) {
-    logger.error(err.message);
+    logger.error(`messageUpdate - ${err.message}`);
   }
 };
 
@@ -158,13 +50,6 @@ const channelPostUpdate = async (
     const channelId = post.chat.id;
 
     switch (post.text) {
-      case "/poll": {
-        await initPoll(ctx);
-        await Bot.client.deleteMessage(channelId, post.message_id);
-
-        break;
-      }
-
       case "/groupid": {
         ctx.reply(
           "You can only use this command in a group.\n" +
@@ -190,7 +75,7 @@ const channelPostUpdate = async (
       }
     }
   } catch (err) {
-    logger.error(err.message);
+    logger.error(`channelPostUpdate - ${err.message}`);
   }
 };
 
@@ -203,19 +88,13 @@ const onUserJoined = async (
       platformGuildId.toString(),
       platformUserId.toString()
     );
+    logger.verbose({
+      message: "onUserJoined - User successfully joined",
+      meta: { platformGuildId, platformUserId }
+    });
   } catch (err) {
-    logger.error(err.message);
+    logger.error(`onUserJoined - ${err.message}`);
   }
-};
-
-const leftChatMemberUpdate = async (
-  ctx: NarrowedContext<Context, any>
-): Promise<void> => {
-  const msg = ctx.update.message;
-
-  logger.verbose(
-    `user "${msg.left_chat_member.id}" left group "${msg.chat.id}"`
-  );
 };
 
 const chatMemberUpdate = async (
@@ -223,43 +102,70 @@ const chatMemberUpdate = async (
 ) => {
   try {
     const {
-      from: { id: userId },
-      chat: { id: groupId },
-      new_chat_member,
+      chat,
+      new_chat_member: newChatMember,
+      from: invitator,
       invite_link: invLink
     } = ctx.update.chat_member;
 
-    if (new_chat_member?.status === "member") {
-      if (invLink) {
-        const { invite_link } = invLink;
+    const groupId = chat.id;
+    const groupTitle = (chat as Chat.GroupChat).title;
+    const invitatorName =
+      invitator.username || invitator.first_name || invitator.last_name;
 
-        const bot = await Bot.client.getMe();
+    const newChatMemberName =
+      newChatMember.user.username ||
+      newChatMember.user.first_name ||
+      newChatMember.user.last_name;
 
-        if (invLink.creator.id === bot.id) {
-          logger.verbose({
-            message: "onChatMemberUpdate",
-            meta: {
-              groupId,
-              userId,
-              invite_link
-            }
-          });
+    if (newChatMember?.status === "member") {
+      const guild = await getGuild(groupId.toString());
+      const { access, reason } = await getUserAccess(
+        newChatMember.user.id.toString(),
+        groupId.toString()
+      );
 
-          onUserJoined(userId, groupId);
-        } else {
-          // kickUser(groupId, userId, "haven't joined through Guild interface");
-        }
-      } else {
-        /* kickUser(
-          groupId,
-          new_chat_member.user.id,
-          "have joined the group without using an invite link.\n" +
-            "If this is not the case then the admins did not set up the guild properly."
+      if (!access || access.roles?.length === 0) {
+        const kickMessage =
+          reason ??
+          `You do not have access to this reward. To check the requirements, visit here: ${guild.url}`;
+        await kickUser(groupId, newChatMember.user.id, kickMessage);
+        /* await Bot.client.sendMessage(
+          invitator.id,
+          `You can not invite ${newChatMemberName} to "${groupTitle}" chat, because it does not have access to this reward.`
         ); */
+        logger.verbose({
+          message: "Invited member got kicked",
+          meta: {
+            invitatorId: invitator.id,
+            invitatorName,
+            platformGuildId: groupId,
+            kickedUserId: newChatMember.user.id,
+            kickedUserName: newChatMemberName
+          }
+        });
+      } else {
+        await onUserJoined(newChatMember.user.id, groupId);
+        const bot = await Bot.client.getMe();
+        const message =
+          invLink?.creator?.id === bot.id
+            ? `Your request to join to the "${groupTitle}" chat has been accepted! If you want more info on possible rewards, visit here: ${guild.url}`
+            : `You got invited to "${groupTitle}" chat by ${invitatorName}. You've also joined the ${guild.name} Guild, so if you want more info on possible rewards, visit here: ${guild.url}`;
+        await Bot.client.sendMessage(newChatMember.user.id, message);
+        logger.verbose({
+          message: "Invited member got accepted and joined to the guild",
+          meta: {
+            invitatorId: invitator.id,
+            invitatorName,
+            platformGuildId: groupId,
+            newUserId: newChatMember.user.id,
+            newChatMemberName
+          }
+        });
       }
     }
   } catch (err) {
-    logger.error(err.message);
+    logger.error(`chatMemberUpdate - ${err.message}`);
   }
 };
 
@@ -269,28 +175,38 @@ const myChatMemberUpdate = async (
   try {
     const { my_chat_member } = ctx.update;
     const { chat, old_chat_member, new_chat_member } = my_chat_member;
+    const chatTitle = (chat as Chat.GroupChat).title;
+    const chatId = chat.id;
+
+    const changes = getChanges(old_chat_member, new_chat_member);
+    if (changes) {
+      const { user, ...newPermissions } = new_chat_member;
+      logger.verbose({
+        message: `myChatMemberUpdate - bot settings/permissions has been changed at chatId: "${chatId}", chatTitle: "${chatTitle}"`,
+        meta: { changes, newPermissions }
+      });
+    }
 
     if (old_chat_member?.status === "kicked") {
-      // onBlocked(ctx);
-      logger.warn(`User ${chat.id} has blocked the bot.`);
+      logger.warn(
+        `Our bot has been blocked by this chat - ID: "${chatId}" | name: "${chatTitle}" | type: ${chat.type}`
+      );
     } else if (
-      new_chat_member?.status === "member" ||
-      new_chat_member?.status === "administrator"
+      new_chat_member?.status === "member" &&
+      (chat.type === "supergroup" || chat.type === "channel")
     ) {
-      const groupId = chat.id;
-
-      if (["supergroup", "channel"].includes(chat.type)) {
-        if (new_chat_member?.status === "administrator") {
-          await sendMessageForSupergroup(groupId);
-        } else {
-          await sendNotAnAdministrator(groupId);
-        }
-      } else {
-        await sendNotASuperGroup(groupId);
+      await sendNotAnAdministrator(chatId, chat.type);
+    } else if (new_chat_member?.status === "administrator") {
+      if (chat.type === "channel") {
+        await sendMessageForChannel(chatId, chatTitle);
+      } else if (chat.type === "supergroup") {
+        await sendMessageForSupergroup(chatId, chatTitle);
       }
+    } else {
+      await sendNotRightSettings(chatId, chat.type);
     }
   } catch (err) {
-    logger.error(err.message);
+    logger.error(`myChatMemberUpdate - ${err.message}`);
   }
 };
 
@@ -298,65 +214,87 @@ const joinRequestUpdate = async (
   ctx: NarrowedContext<Context, Update.ChatJoinRequestUpdate>
 ): Promise<void> => {
   const { chatJoinRequest } = ctx;
-  const platformGuildId = chatJoinRequest.chat.id;
-  const platformUserId = chatJoinRequest.from.id;
+  const platformGuildId = chatJoinRequest.chat.id.toString();
+  const platformUserId = chatJoinRequest.from.id.toString();
 
   logger.verbose({
-    message: "joinRequestUpdate",
+    message: "joinRequestUpdate params",
     meta: { platformGuildId, platformUserId }
   });
 
-  let access: GuildPlatformData;
-
-  try {
-    access = await Main.platform.guild.getUserAccess(
-      platformGuildId.toString(),
-      platformUserId.toString()
-    );
-  } catch (err) {
-    try {
-      if (
-        err?.response?.data?.errors?.[0].msg.startsWith("Cannot find guild")
-      ) {
-        logger.error("No guild is associated with this group.");
-      } else if (
-        err?.response?.data?.errors?.[0].msg.startsWith("Cannot find user")
-      ) {
-        await Main.platform.user.join(
-          platformGuildId.toString(),
-          platformUserId.toString()
-        );
-      } else {
-        logger.error({
-          message: err.message,
-          groupId: platformGuildId,
-          userId: platformUserId
-        });
-      }
-    } catch (error) {
-      logger.error(error);
-    }
-  }
+  const { access, reason } = await getUserAccess(
+    platformUserId,
+    platformGuildId
+  );
 
   try {
     if (!access || access.roles?.length === 0) {
       await ctx.declineChatJoinRequest(ctx.chatJoinRequest.from.id);
 
+      const guild = await getGuild(platformGuildId);
+
+      await Bot.client.sendMessage(
+        platformUserId,
+        reason ??
+          `Your join request was declined because you do not have access to this reward. To check the requirements, visit here: ${guild.url}`
+      );
+
+      logger.verbose({
+        message: "Join request declined",
+        meta: { access, platformGuildId, platformUserId }
+      });
+
       return;
     }
 
+    await onUserJoined(+platformUserId, +platformGuildId);
     await ctx.approveChatJoinRequest(ctx.chatJoinRequest.from.id);
+    logger.verbose({
+      message: "Join request approved",
+      meta: { access, platformGuildId, platformUserId }
+    });
   } catch (error) {
-    logger.error(error);
+    logger.error(`Join request approve/decline - ${error}`);
   }
+};
+
+const leftChatMemberUpdate = async (
+  ctx: NarrowedContext<Context, any>
+): Promise<void> => {
+  let leaveAction: string;
+  const msg = ctx.update.message;
+
+  const from = msg?.from;
+  const chat = msg?.chat;
+  const leftChatMember = msg?.left_chat_member;
+
+  switch (from?.id) {
+    case leftChatMember?.id: {
+      leaveAction = "left the telegram group on its own";
+      break;
+    }
+
+    case config.botId: {
+      leaveAction = "kicked by our bot";
+      break;
+    }
+
+    default: {
+      leaveAction = "banned by this admin";
+    }
+  }
+
+  logger.verbose(
+    `User "id: ${leftChatMember?.id} - username: ${leftChatMember?.username}" ${leaveAction} "id: ${from?.id} - username: ${from?.username}". Chat "id: ${chat?.id} - title: ${chat?.title} - type: ${chat?.type}`
+  );
 };
 
 export {
   messageUpdate,
   channelPostUpdate,
   onUserJoined,
-  leftChatMemberUpdate,
   chatMemberUpdate,
   myChatMemberUpdate,
-  joinRequestUpdate
+  joinRequestUpdate,
+  leftChatMemberUpdate
 };
