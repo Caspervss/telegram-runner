@@ -146,8 +146,10 @@ const getUserAccess = async (
       if (errorMsg.startsWith("Cannot find guild")) {
         logger.error(`No guild is associated with "${platformGuildId}" group.`);
       } else if (errorMsg.startsWith("Cannot find user")) {
-        const guild = await getGuild(platformGuildId);
-        const groupName = await getGroupName(+platformGuildId);
+        const [guild, groupName] = await Promise.all([
+          getGuild(platformGuildId),
+          getGroupName(+platformGuildId)
+        ]);
 
         return {
           access: null,

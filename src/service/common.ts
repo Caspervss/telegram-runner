@@ -25,7 +25,9 @@ const generateInvite = async (groupId: string): Promise<string | undefined> => {
       })
     ).invite_link;
   } catch (err) {
-    logger.error({ message: `generateInvite - ${err.message}`, groupId });
+    logger.error({
+      message: `generateInvite - groupId: "${groupId}" - ${err.message}`
+    });
     return undefined;
   }
 };

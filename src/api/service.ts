@@ -38,8 +38,10 @@ const service = {
             };
           }
           if (action === "REMOVE") {
-            const guild = await getGuild(platformGuildId);
-            const groupName = await getGroupName(+platformGuildId);
+            const [guild, groupName] = await Promise.all([
+              getGuild(platformGuildId),
+              getGroupName(+platformGuildId)
+            ]);
 
             result = await kickUser(
               +platformGuildId,
@@ -95,8 +97,10 @@ const service = {
   info: async (platformGuildId: string) => {
     logger.verbose({ message: "info params", meta: { platformGuildId } });
 
-    const name = await getGroupName(+platformGuildId);
-    const invite = await generateInvite(platformGuildId);
+    const [name, invite] = await Promise.all([
+      getGroupName(+platformGuildId),
+      generateInvite(platformGuildId)
+    ]);
     const result = { name, invite };
 
     logger.verbose({ message: "info result", meta: result });
