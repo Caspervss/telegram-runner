@@ -44,9 +44,15 @@ const logAxiosResponse = (res: AxiosResponse<any>) => {
 const extractBackendErrorMessage = (error: any) =>
   error.response?.data?.errors[0]?.msg;
 
+const getChanges = (old, current) =>
+  Object.entries(current)
+    .filter(([key, val]) => typeof old[key] !== "object" && old[key] !== val)
+    .reduce((obj, [key, v]) => ({ ...obj, [key]: v }), {});
+
 export {
   markdownEscape,
   getErrorResult,
   logAxiosResponse,
-  extractBackendErrorMessage
+  extractBackendErrorMessage,
+  getChanges
 };

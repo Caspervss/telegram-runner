@@ -9,7 +9,7 @@ import {
   sendMessageForChannel
 } from "./common";
 import logger from "../utils/logger";
-import { markdownEscape } from "../utils/utils";
+import { getChanges, markdownEscape } from "../utils/utils";
 import Main from "../Main";
 import { getGuild, getUserAccess } from "../api/actions";
 import config from "../config";
@@ -177,6 +177,15 @@ const myChatMemberUpdate = async (
     const { chat, old_chat_member, new_chat_member } = my_chat_member;
     const chatTitle = (chat as Chat.GroupChat).title;
     const chatId = chat.id;
+
+    const changes = getChanges(old_chat_member, new_chat_member);
+    if (changes) {
+      const { user, ...newPermissions } = new_chat_member;
+      logger.verbose({
+        message: `myChatMemberUpdate - bot settings/permissions has been changed at chatId: "${chatId}", chatTitle: "${chatTitle}"`,
+        meta: { changes, newPermissions }
+      });
+    }
 
     if (old_chat_member?.status === "kicked") {
       logger.warn(
