@@ -25,10 +25,11 @@ const service = {
 
         try {
           if (action === "ADD") {
-            if (config.unbanAtAddAccess) {
+            if (config.unbanAtAddAccess === "true") {
               await Bot.client.unbanChatMember(
                 platformGuildId,
-                +platformUserId
+                +platformUserId,
+                { only_if_banned: true }
               );
             }
             result = {
