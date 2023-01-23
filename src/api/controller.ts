@@ -106,8 +106,8 @@ const controller = {
     try {
       const result = await isIn(+groupId);
       logger.verbose({
-        message: `isIn result - ${result}`,
-        meta: groupId
+        message: `isIn result - ${result.ok}`,
+        meta: { groupId, message: result.message, groupName: result.groupName }
       });
       res.status(200).json(result);
     } catch (err) {

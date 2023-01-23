@@ -13,13 +13,12 @@ type ErrorResult = {
   errors: { msg: string }[];
 };
 
-type IsInResult =
-  | { ok: false; message: string }
-  | {
-      groupIcon: string;
-      groupName: string;
-      ok: true;
-    };
+type IsInResult = {
+  ok: boolean;
+  message?: string;
+  groupIcon?: string;
+  groupName?: string;
+};
 
 type PlatformRoleResponse = {
   roleName: string;
